@@ -1,0 +1,5 @@
+encolar --command 'python src/train.py --lambda_class 0.00075 --batch_size 16 --classifier_name resnet18 --dataset COVIDGR1.0-Segmentadas --data_size 256' --directory /mnt/sdd/fcastro/Class-Inherent-Transformations/ --conda /mnt/sdd/fcastro/envs/TF/
+
+encolar --command 'python3 src/transform_data.py --data_size 256 --lambda_class 0.00075 --classifier_name resnet18 --weight_type best --weight_idx 2 --dataset COVIDGR1.0-Segmentadas' --directory /mnt/sdd/fcastro/Class-Inherent-Transformations --conda /mnt/sdd/fcastro/envs/TF
+
+encolar --command 'python src/main.py ' --directory /mnt/sdd/fcastro/TFGCOVID/ --conda /mnt/sdd/fcastro/envs/TF/
