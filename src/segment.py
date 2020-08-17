@@ -88,7 +88,7 @@ def crop(image_dir, save_dir):
     save_dir_path = os.path.join( os.getcwd(), save_dir )
 
     if not os.path.exists(image_dir_path):
-        print("Error: no existe el directorio " + image_dir)
+        print("Error: not found " + image_dir)
         sys.exit(1)
 
     if not os.path.exists(save_dir_path):
@@ -97,7 +97,7 @@ def crop(image_dir, save_dir):
     segmentation_model = load_model(SEGMENTATION_MODEL, custom_objects={'dice_coef_loss': dice_coef_loss, 'dice_coef': dice_coef})
     
     for c in os.listdir(image_dir_path):
-        print("Recortando las imágenes de " + c)
+        print("Cropping images from " + c)
         c_path = os.path.join(image_dir_path, c)
         save_c_path = os.path.join(save_dir_path, c)
         if not os.path.exists(save_c_path):
@@ -112,6 +112,3 @@ def crop(image_dir, save_dir):
             cropped_img = cropImage(img, pred, threshold=threshold)
             img_save_path = os.path.join(save_c_path, img_name)
             cv2.imwrite(img_save_path, cropped_img)
-
-
-    print("hola")
