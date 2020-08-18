@@ -4,7 +4,23 @@ import math
 import random 
 import shutil
 
-def splitTrainTest(SEED, img_dir, split_dir, train_prop, val_prop):
+
+def initFolders(dir_path, split_dir_path):
+
+    if not os.path.exists(split_dir_path):
+        os.makedirs(split_dir_path)
+
+    for t in ['train', 'test', 'val']:
+        if not os.path.exists(split_dir_path + os.sep + t):
+            os.makedirs(split_dir_path + os.sep + t)
+    
+    for sub_dir in os.listdir(dir_path):
+        for t in ['train', 'test', 'val']:
+            if not os.path.exists(split_dir_path + os.sep + t + os.sep + sub_dir):
+                os.makedirs(split_dir_path + os.sep + t + os.sep + sub_dir)
+
+
+def splitTrainTest(img_dir, split_dir, train_prop, val_prop):
     dir_path = os.path.join(os.getcwd(), img_dir)
     split_dir_path = os.path.join(os.getcwd(), split_dir)
 
@@ -46,18 +62,32 @@ def splitTrainTest(SEED, img_dir, split_dir, train_prop, val_prop):
         [shutil.copy(path_sub_dir + os.sep + images[i], split_dir_path + os.sep + "train" + os.sep + sub_dir) for i in train_idx]
     
 
+def splitTransformed(img_dir, save_split_dir, split_dir):
 
-def initFolders(dir_path, split_dir_path):
+    img_dir_path = os.path.join( os.getcwd(), img_dir )
+    split_dir_path = os.path.join( os.getcwd(), split_dir )
 
-    if not os.path.exists(split_dir_path):
-        os.makedirs(split_dir_path)
+    save_split_dir_path = os.path.join( os.getcwd(), save_split_dir )
+    if not os.path.exists(save_split_dir_path):
+        os.makedirs(save_split_dir_path)
 
-    for t in ['train', 'test', 'val']:
-        if not os.path.exists(split_dir_path + os.sep + t):
-            os.makedirs(split_dir_path + os.sep + t)
-    
-    for sub_dir in os.listdir(dir_path):
-        for t in ['train', 'test', 'val']:
-            if not os.path.exists(split_dir_path + os.sep + t + os.sep + sub_dir):
-                os.makedirs(split_dir_path + os.sep + t + os.sep + sub_dir)
+    for d in os.listdir(split_dir_path): #train, test, split
 
+        if not os.path.exists( save_split_dir_path + os.sep + d ):
+            os.makedirs( save_split_dir_path + os.sep + d )
+        
+        for c in ['NTN', 'NTP', 'PTN', 'PTP']:
+            destiny = save_split_dir_path + os.sep + d + os.sep + c
+            if not os.path.exists(destiny):
+                os.makedirs(destiny)
+        
+        for c in os.listdir( split_dir_path + os.sep + d ): # P, N
+            for img in os.listdir( split_dir_path + os.sep + d + os.sep + c):
+                name = os.path.splitext(img)[0]
+                for q in ['P', 'N']:
+                    trans_img = name+"_"+c+"T18" + q + ".png" # le pongo png porque CIT las saca en png
+                    trans_img_path = img_dir_path + os.sep + trans_img
+                    destiny = save_split_dir_path + os.sep + d + os.sep + c + "T" + q
+                    #print(trans_img_path)
+                    #print(destiny)
+                    shutil.copy(trans_img_path, destiny )
