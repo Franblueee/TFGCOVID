@@ -2,14 +2,15 @@
 #from segment import *
 from splitTrainTest import *
 #from CIT import *
+from SDNET import *
 
 import os
 import random
 
 if __name__ == "__main__":
 
-    nombre = "COVIDGR1.0reducido"
-    #nombre = "COVIDGR1.0"
+    #nombre = "COVIDGR1.0reducido"
+    nombre = "COVIDGR1.0"
 
     image_dir = "data" + os.sep + "input" + os.sep + nombre + "-SinSegmentar"
     cropped_dir = "data" + os.sep + "generated" + os.sep + nombre + "-cropped"
@@ -24,5 +25,22 @@ if __name__ == "__main__":
     #crop(image_dir, cropped_dir)
     #splitTrainTest(cropped_dir, cropped_split_dir, 0.8, 0.1)
     #transform()
-    splitTransformed(transformed_dir, transformed_split_dir, cropped_split_dir)
-    #train()
+    #splitTransformed(transformed_dir, transformed_split_dir, cropped_split_dir)
+    
+    img_rows = img_cols = 224
+    batch_size = 8
+    epochs = 10
+    fine_tune = True
+    random_shift = 0
+    horizontal_flip = False
+    random_zoom = 0
+    random_rotation = 0
+    save_model_file = "model.h5"
+    use_weights = False
+    reg_file = "tmp_weights.h5"
+    save_preds_file = "save_preds.csv"
+
+    transferLearning(transformed_split_dir, img_rows, img_cols, batch_size, epochs,
+                     fine_tune, random_shift, horizontal_flip,
+                     random_zoom, random_rotation, save_model_file, use_weights,
+                     reg_file, save_preds_file)

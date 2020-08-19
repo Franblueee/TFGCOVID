@@ -71,8 +71,8 @@ def splitTransformed(img_dir, save_split_dir, split_dir):
     if not os.path.exists(save_split_dir_path):
         os.makedirs(save_split_dir_path)
 
-    for d in os.listdir(split_dir_path): #train, test, split
-
+    for d in ['train', 'test', 'val']: #train, test, val
+    #for d in os.listdir(split_dir_path): #train, test, val
         if not os.path.exists( save_split_dir_path + os.sep + d ):
             os.makedirs( save_split_dir_path + os.sep + d )
         
