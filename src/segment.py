@@ -5,6 +5,8 @@ import sys
 import numpy as np
 
 import cv2
+import PIL
+
 
 from tqdm import tqdm
 
@@ -23,7 +25,7 @@ def dice_coef(y_true, y_pred):
 def dice_coef_loss(y_true, y_pred):
     return -dice_coef(y_true, y_pred)
 
-def cropImage(image, pred, threshold = 0):
+def cropImage(image, segmentation_model, threshold = 0):
     initial_width, initial_heigth = image.size
 
     lambda1, lambda2 = initial_heigth/512.0, initial_width/512.0
@@ -41,7 +43,8 @@ def cropImage(image, pred, threshold = 0):
     image = np.reshape(image, image.shape + (1,))
     image = np.reshape(image, (1,) + image.shape)
 
-    pred_img = pred[0,:,:,0]
+    pred_img = segmentation_model.predict(image)
+    pred_img = pred_img[0,:,:,0]
 
     heigth1, heigth2, width1, width2 = None, None, None, None
 
@@ -100,6 +103,7 @@ def crop(image_dir, save_dir):
         print("Cropping images from " + c)
         c_path = os.path.join(image_dir_path, c)
         save_c_path = os.path.join(save_dir_path, c)
+
         if not os.path.exists(save_c_path):
             os.makedirs(save_c_path)
         
@@ -107,8 +111,7 @@ def crop(image_dir, save_dir):
 
         for img_name in tqdm(images):
             img_path = os.path.join(c_path, img_name)
-            img = load_img(img_path)
-            pred = segmentation_model.predict(img)
-            cropped_img = cropImage(img, pred, threshold=threshold)
+            img = PIL.Image.open(img_path)
+            cropped_img = cropImage(img, segmentation_model, threshold=threshold)
             img_save_path = os.path.join(save_c_path, img_name)
             cv2.imwrite(img_save_path, cropped_img)

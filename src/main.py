@@ -1,7 +1,7 @@
 
-#from segment import *
+from segment import *
 from splitTrainTest import *
-#from CIT import *
+from CIT import CIT
 from SDNET import *
 
 import os
@@ -13,23 +13,30 @@ if __name__ == "__main__":
     nombre = "COVIDGR1.0"
 
     image_dir = "data" + os.sep + "input" + os.sep + nombre + "-SinSegmentar"
-    cropped_dir = "data" + os.sep + "generated" + os.sep + nombre + "-cropped"
-    cropped_split_dir = "data" + os.sep + "generated" + os.sep + nombre + "-cropped-split"
-    transformed_dir = "data" + os.sep + "generated" + os.sep + nombre + "-transformed"
-    transformed_split_dir = "data" + os.sep + "generated" + os.sep + nombre + "-transformed-split"
+    cropped_dir = "data" + os.sep + "generated" + os.sep + nombre + os.sep + "cropped"
+    cropped_split_dir = "data" + os.sep + "generated" + os.sep + nombre + os.sep + "cropped-split"
+    transformed_dir = "data" + os.sep + "generated" + os.sep + nombre + os.sep + "transformed"
+    transformed_split_dir = "data" + os.sep + "generated" + os.sep + nombre + os.sep + "transformed-split"
 
     SEED = 31416
 
     random.seed(SEED)
 
-    #crop(image_dir, cropped_dir)
-    #splitTrainTest(cropped_dir, cropped_split_dir, 0.8, 0.1)
-    #transform()
-    #splitTransformed(transformed_dir, transformed_split_dir, cropped_split_dir)
+    train_prop = 0.8
+    val_prop = 0.2
+
+    crop(image_dir, cropped_dir)
+    
+    splitTrainTest(cropped_dir, cropped_split_dir, train_prop)
+
+    CIT.CIT(cropped_split_dir, transformed_dir, nombre)
+
+    splitTransformed(transformed_dir, transformed_split_dir, cropped_split_dir)
+    splitTrainVal(transformed_split_dir, val_prop)
     
     img_rows = img_cols = 224
     batch_size = 8
-    epochs = 10
+    epochs = 50
     fine_tune = True
     random_shift = 0
     horizontal_flip = False
@@ -40,7 +47,4 @@ if __name__ == "__main__":
     reg_file = "tmp_weights.h5"
     save_preds_file = "save_preds.csv"
 
-    transferLearning(transformed_split_dir, img_rows, img_cols, batch_size, epochs,
-                     fine_tune, random_shift, horizontal_flip,
-                     random_zoom, random_rotation, save_model_file, use_weights,
-                     reg_file, save_preds_file)
+    transferLearning(transformed_split_dir, img_rows, img_cols, batch_size, epochs, fine_tune, random_shift, horizontal_flip, random_zoom, random_rotation, save_model_file, use_weights, reg_file, save_preds_file, val_prop)
