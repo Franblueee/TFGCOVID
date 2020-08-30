@@ -14,7 +14,7 @@ os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
 def transferLearning(image_dir, imgs_rows, imgs_cols, batch_size, epochs,
                      fine_tune, random_shift, horizontal_flip,
                      random_zoom, random_rotation, save_model_file, use_weights,
-                     reg_file, save_preds_file, val_prop):
+                     reg_file, save_preds_file):
 
     image_dir_path = os.path.join( os.getcwd(), image_dir )
     

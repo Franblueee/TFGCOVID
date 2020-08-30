@@ -1,6 +1,6 @@
 
 from segment import *
-from splitTrainTest import *
+from splitUtils import *
 from CIT import CIT
 from SDNET import *
 
@@ -23,16 +23,21 @@ if __name__ == "__main__":
     random.seed(SEED)
 
     train_prop = 0.8
-    val_prop = 0.2
+    val_prop = 0.1
 
     crop(image_dir, cropped_dir)
     
-    splitTrainTest(cropped_dir, cropped_split_dir, train_prop)
+    train_data, test_data, val_data = splitTrainTestVal(cropped_dir, cropped_split_dir, train_prop, val_prop)
+    
+    data_size = 256 
+    num_epochs = 50
+    batch_size = 8
+    classifier_name = 'resnet18'
+    lambda_value = 0.00075
 
-    CIT.CIT(cropped_split_dir, transformed_dir, nombre)
+    CIT.CIT(cropped_split_dir, transformed_dir, nombre, data_size, num_epochs, batch_size, classifier_name, lambda_value)
 
-    splitTransformed(transformed_dir, transformed_split_dir, cropped_split_dir)
-    splitTrainVal(transformed_split_dir, val_prop)
+    splitTransformed(transformed_dir, transformed_split_dir, train_data, test_data, val_data)
     
     img_rows = img_cols = 224
     batch_size = 8
@@ -47,4 +52,4 @@ if __name__ == "__main__":
     reg_file = "tmp_weights.h5"
     save_preds_file = "save_preds.csv"
 
-    transferLearning(transformed_split_dir, img_rows, img_cols, batch_size, epochs, fine_tune, random_shift, horizontal_flip, random_zoom, random_rotation, save_model_file, use_weights, reg_file, save_preds_file, val_prop)
+    #transferLearning(transformed_split_dir, img_rows, img_cols, batch_size, epochs, fine_tune, random_shift, horizontal_flip, random_zoom, random_rotation, save_model_file, use_weights, reg_file, save_preds_file)
