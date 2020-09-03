@@ -1,0 +1,36 @@
+\documentclass[12pt, twoside]{report}
+
+\usepackage[utf8]{inputenc}
+\usepackage[spanish]{babel}
+
+\usepackage{amsthm}
+\usepackage{amssymb}
+\usepackage{graphicx} 
+
+
+
+\usepackage[a4paper,width=150mm,top=30mm,bottom=30mm, bindingoffset=6mm]{geometry}
+%\usepackage[includehead,hmargin={3.1cm, 3.1cm}, vmargin={2.5cm,2.7cm}, headsep=.8cm,footskip=1.2cm]{geometry}
+
+%\usepackage{fancyhdr}
+%\pagestyle{fancy}
+
+\usepackage{biblatex}
+\addbibresource{references.bib}
+
+\theoremstyle{plain}
+\newtheorem{theorem}{Teorema}[chapter]
+\newtheorem{corollary}[theorem]{Corolario}
+\newtheorem{lemma}[theorem]{Lema}
+\newtheorem{prop}[theorem]{Proposición}
+
+\theoremstyle{definition}
+\newtheorem{definition}[theorem]{Definición}
+
+\theoremstyle{definition}
+\newtheorem*{definition*}{Definición}
+
+\theoremstyle{remark}
+\newtheorem*{remark}{Remark}
+
+\def\logo{{\includegraphics[width=0.4\linewidth]{images/ugr.png}}}

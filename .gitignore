@@ -3,3 +3,15 @@
 *.jpeg
 *.json
 *.pyc
+*.log
+*.aux
+*.bcf
+*.lof
+*.lot
+*.run.xml
+*.synctex.gz
+*.toc
+*.tex.aux
+*.bbl
+*.blg
+*.code-workspace

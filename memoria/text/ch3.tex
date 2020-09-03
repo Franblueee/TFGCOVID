@@ -1,0 +1,42 @@
+\chapter{\label{ch3}Aprendizaje Automático}
+
+De acuerdo con Tom Mitchell, el Aprendizaje Automático consiste en el estudio de algoritmos que mejoran automáticamente a través de la experiencia. 
+
+\section{El problema del aprendizaje}
+
+Cuando decimos que un algoritmo aprende, ¿qué entendemos por aprender? 
+
+\begin{definition*}
+	Se dice que un algoritmo o programa $\mathcal{A}$ aprende de la experiencia $E$ respecto a alguna tarea $T$ y una medida de rendimiento $P$, si su rendimiento en la tarea $T$ de acuerdo a $P$ mejora con la experiencia $E$.
+\end{definition*}
+
+Podemos formular el problema del aprendizaje en los siguientes términos. Sean $\mathcal{X, Y}$ dos conjuntos que llamaremos espacio de entrada y de salida. Sea $\mathcal{D}$ el conjunto de datos o ejemplos.
+
+Queremos aproximar una función objetivo $f: \mathcal{X} \mapsto \mathcal{Y}$ de acuerdo a una medida de error $L: \mathcal{H} \mapsto \mathbb{R}$. Nuestro algoritmo $\mathcal{A}$ usará $\mathcal{D}$ para elegir una función $g: \mathcal{X} \mapsto \mathcal{Y}$ de un conjunto de hipótesis $\mathcal{H}$ que aproxime a $f$.
+
+La tarea $T$ se corresponde con encontrar la función $f$, la experiencia $E$ con el conjunto de datos $\mathcal{D}$, y la medida de rendimiento con la medida de error $L$.
+
+El problema al que nos enfrentamos en este trabajo es un \textbf{problema de clasificación supervisado}. Veamos a qué nos referimos con esto. 
+
+\subsection{Tipos de aprendizaje}
+En función del conjunto de datos $\mathcal{D}$ del que aprende nuestro algoritmo encontramos dos grandes clases de aprendizaje:
+\begin{itemize}
+	\item \textbf{Aprendizaje supervisado:} cada ejemplo está etiquetado con el resultado que el algoritmo debería de producir. Es decir, $\mathcal{D}\subset\mathcal{X}\times\mathcal{Y}$ y se busca encontrar una relación entre la etiqueta y el ejemplo. 
+	\item \textbf{Aprendizaje no supervisado:} los datos no están etiquetados. Ahora $\mathcal{D}\subset\mathcal{X}$ y pretendemos identificar propiedades de la estructura del conjunto de datos. 
+\end{itemize}
+
+\subsection{Problema de clasificación}
+El aprendizaje automático puede aplicarse para resolver multitud de problemas: clasificación, regresión, predicción de series temporales, detección de anomalías, generación de nuevos datos, etc.
+
+En un problema de clasificación existen una serie de categorías o clases y queremos que nuestro algoritmo asigne a cada ejemplo una clase de forma correcta. Es decir, $\mathcal{Y} = \{ 1, \ldots, C\}$ con $C \in \mathbb{N}$. Si $C=2$, tenemos un problema de clasificación binaria. 
+
+De ahora en adelante, nos centraremos en el aprendizaje supervisado. Concretamente, hablaremos de problemas de clasificación. 
+
+\subsection{Probabilidad y generalización}
+El resultado del proceso de aprendizaje es una función $g$ que aproxima a la función objetivo ideal $f$. 
+
+Queremos definir el error de un clasificador como la probabilidad de que no asigne la etiqueta correcta a un ejemplo aleatorio del espacio de entrada. Para ello, sea $\mathcal{P}$ una distribución de probabilidad sobre el espacio de entrada $\mathcal{X}$.  asumamos que los datos $\mathcal{D}$ son 
+
+\section{Factibilidad del aprendizaje}
+
+\section{}
