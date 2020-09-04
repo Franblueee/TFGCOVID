@@ -21,22 +21,60 @@ El problema al que nos enfrentamos en este trabajo es un \textbf{problema de cla
 \subsection{Tipos de aprendizaje}
 En función del conjunto de datos $\mathcal{D}$ del que aprende nuestro algoritmo encontramos dos grandes clases de aprendizaje:
 \begin{itemize}
-	\item \textbf{Aprendizaje supervisado:} cada ejemplo está etiquetado con el resultado que el algoritmo debería de producir. Es decir, $\mathcal{D}\subset\mathcal{X}\times\mathcal{Y}$ y se busca encontrar una relación entre la etiqueta y el ejemplo. 
+	\item \textbf{Aprendizaje supervisado:} cada ejemplo está etiquetado con el resultado que el algoritmo debería de producir. Es decir, $\mathcal{D}\subset\mathcal{X}\times\mathcal{Y}$ y se busca encontrar una relación entre la etiqueta y el ejemplo.
 	\item \textbf{Aprendizaje no supervisado:} los datos no están etiquetados. Ahora $\mathcal{D}\subset\mathcal{X}$ y pretendemos identificar propiedades de la estructura del conjunto de datos. 
 \end{itemize}
 
 \subsection{Problema de clasificación}
 El aprendizaje automático puede aplicarse para resolver multitud de problemas: clasificación, regresión, predicción de series temporales, detección de anomalías, generación de nuevos datos, etc.
 
-En un problema de clasificación existen una serie de categorías o clases y queremos que nuestro algoritmo asigne a cada ejemplo una clase de forma correcta. Es decir, $\mathcal{Y} = \{ 1, \ldots, C\}$ con $C \in \mathbb{N}$. Si $C=2$, tenemos un problema de clasificación binaria. 
+En un problema de clasificación el espacio de salida consiste en una serie de categorías o clases y queremos que nuestro algoritmo asigne a cada ejemplo una clase de forma correcta. Es decir, $\mathcal{Y} = \{ 1, \ldots, C\}$ con $C \in \mathbb{N}$. Si $C=2$, tenemos un problema de clasificación binaria. 
 
-De ahora en adelante, nos centraremos en el aprendizaje supervisado. Concretamente, hablaremos de problemas de clasificación. 
-
-\subsection{Probabilidad y generalización}
-El resultado del proceso de aprendizaje es una función $g$ que aproxima a la función objetivo ideal $f$. 
-
-Queremos definir el error de un clasificador como la probabilidad de que no asigne la etiqueta correcta a un ejemplo aleatorio del espacio de entrada. Para ello, sea $\mathcal{P}$ una distribución de probabilidad sobre el espacio de entrada $\mathcal{X}$.  asumamos que los datos $\mathcal{D}$ son 
+De ahora en adelante, nos centraremos en el aprendizaje supervisado. Concretamente, hablaremos de problemas de clasificación.  
 
 \section{Factibilidad del aprendizaje}
+El algoritmo de aprendizaje usa el conjunto de entrenamiento $\mathcal{D}$, que en la práctica será un conjunto finito de ejemplos, para aprender la función objetivo. ¿Por qué un conjunto limitado de datos puede revelar información suficiente para lograr nuestro objetivo? Para responder a esta pregunta tendremos que añadir algunas hipótesis adicionales a la formulación del problema. Escribamos $\mathcal{D}=\{ (x_1, y_1), \ldots, (x_N, y_N) \}$ y supongamos:\\
 
-\section{}
+\noindent
+\textbf{H1.} Tras fijar el espacio $\mathcal{H}$, los ejemplos $x_1, \ldots, x_N$ han sido extraídos de forma independiente de acuerdo a una distribución de probabilidad $P$ sobre el espacio de entrada $\mathcal{X}$.\\ 
+
+La función objetivo $f$ es completamente desconocida. Lo que obtenemos como resultado del aprendizaje es una función $g$ que aproxima a $f$. Para medir cómo de buena es esta aproximación, recurrimos a la función de pérdida $\ell$.
+En la situación más general, tendremos una función $\ell: \mathcal{Y} \times \mathcal{Y} \mapsto \mathbb{R}$, tal que $\ell(u, v)$ mide el error que cometemos al asignar a un ejemplo la etiqueta $u$ cuando su etiqueta correcta es $v$. Definimos 
+\begin{gather*}
+	L(h) = \mathbb{E}_{X \sim P}[\ell(h(X), f(X))] \quad \forall h \in \mathcal{H}
+\end{gather*}
+y queremos resolver:
+\begin{gather*}
+	\text{Encontrar $g \in \mathcal{H}$ tal que } L(g) = \min_{h \in \mathcal{H}} L(h)
+\end{gather*}
+No tenemos acceso a la función $f$ ni tampoco a la distribución $P$. Por tanto, resolver el anterior problema será inviable en la mayor parte de las situaciones. Una forma natural de proceder es definir 
+\begin{gather*}
+	L_{in}(h, \mathcal{D}) =  \dfrac{1}{N}\sum_{(x_n, y_n) \in \mathcal{D}} \ell(h(x_n), y_n) \quad  \forall h \in \mathcal{H}
+\end{gather*}
+y, una vez fijado $\mathcal{D}$, minimizar $L_{in}$ en lugar de $L$. Lo que vamos a probar es que reducir $L_{in}$ conlleva reducir $L$, luego podemos aspirar a soluciones subóptimas.
+
+Para un problema de clasificación, definimos $\ell(u,v)=1$ si $u=v$ y $0$ si $u\neq v$. Vamos a omitir la dependencia de $\mathcal{D}$ al escribir $L_{in}$ y vamos a llamar $L_{out} = L(h) = P[h(x) \neq f(x)] \quad \forall h \in \mathcal{H}$. Vamos a usar la desigualdad de Hoeffding:
+
+\begin{lemma}[Desigualdad de Hoeffding]\label{hoeffding}
+	Sea $Z_1, \ldots, Z_N$ una muestra aleatoria simple de una variable aleatoria $Z$ que sigue una distribución de Bernouilli con media $E[Z]$. Sea $\bar{Z}$ la media muestral. Sea $\epsilon$ un número real estrictamente positivo. Entonces se cumple que:
+	\begin{align}
+		P[ |E[Z] - \bar{Z}| > \epsilon  ] \leq 2 \epsilon^{-2 \epsilon^2 N}
+	\end{align}
+\end{lemma}
+
+Supongamos primero que $\mathcal{H} = \{ h \}$. Definamos $I: \mathcal{X} \mapsto \{0,1\}$ como $I(x)=1$ si $h(x) = f(x)$ y $I(x) = 0$ si $h(x) \neq f(x)$. Tenemos entonces que $I$ es una variable aleatoria que sigue una distribución de Bernouilli, cuya esperanza se corresponde con $L_{out}$. Si escribimos $I_n=\ell(x_n, y_n)$, tenemos que $I_1, \ldots, I_n$ es una muestra aleatoria simple de $I$, y podemos aplicar (\ref{hoeffding}) para un $\epsilon > 0$ fijo obteniendo que:
+\begin{align*}
+	P[ |L_{out}(h) - L_{in}(h)| > \epsilon  ] \leq 2 \epsilon^{-2 \epsilon^2 N}
+\end{align*}
+
+Esta desigualdad nos dice que, fijado un margen de error $\epsilon$, la diferencia entre $L_{in}$ y $L_{out}$ queda controlada por el tamaño de la muestra. Aumentando el tamaño de $N$, la probabilidad de exceder el margen de error tiende a cero. 
+Ahora supongamos que $\mathcal{H} = \{h_1, \ldots, h_M\}$. Denotemos por $g$ la solución aproximada que obtiene el algoritmo $\mathcal{A}$. Denotemos por $\mathbb{B}$ el evento $|L_{out}(g) - L_{in}(g)| > \epsilon$ y para cada $h_m$, por $\mathbb{B}_m$ el evento $|L_{out}(h_m) - L_{in}(h_m)| > \epsilon$. Se cumple que $  \mathbb{B} = \bigcup_{m=1}^{M} \mathbb{B}_m$.
+
+
+
+
+
+
+
+
+\section{Optimización: gradiente descendente}
