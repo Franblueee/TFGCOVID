@@ -51,9 +51,13 @@ No tenemos acceso a la función $f$ ni tampoco a la distribución $P$. Por tanto
 \begin{gather*}
 	L_{in}(h, \mathcal{D}) =  \dfrac{1}{N}\sum_{(x_n, y_n) \in \mathcal{D}} \ell(h(x_n), y_n) \quad  \forall h \in \mathcal{H}
 \end{gather*}
-y, una vez fijado $\mathcal{D}$, minimizar $L_{in}$ en lugar de $L$. Lo que vamos a probar es que reducir $L_{in}$ conlleva reducir $L$, luego podemos aspirar a soluciones subóptimas.
+y, una vez fijado $\mathcal{D}$, minimizar $L_{in}$ en lugar de $L$:
+\begin{gather*}
+	\text{Encontrar $g \in \mathcal{H}$ tal que } L_{in}(g) = \min_{h \in \mathcal{H}} L_{in}(h)
+\end{gather*}
+Lo que vamos a probar es que reducir $L_{in}$ conlleva reducir $L$, luego podemos aspirar a soluciones subóptimas.
 
-Para un problema de clasificación, definimos $\ell(u,v)=1$ si $u=v$ y $0$ si $u\neq v$. Vamos a omitir la dependencia de $\mathcal{D}$ al escribir $L_{in}$ y vamos a llamar $L_{out} = L(h) = P[h(x) \neq f(x)] \quad \forall h \in \mathcal{H}$. Vamos a usar la desigualdad de Hoeffding:
+Para un problema de clasificación binaria, definimos $\ell(u,v)=1$ si $u=v$ y $0$ si $u\neq v$. Vamos a omitir la dependencia de $\mathcal{D}$ al escribir $L_{in}$ y vamos a llamar $L_{out} = L(h) = P[h(x) \neq f(x)] \quad \forall h \in \mathcal{H}$. Vamos a usar la desigualdad de Hoeffding:
 
 \begin{lemma}[Desigualdad de Hoeffding]\label{hoeffding}
 	Sea $Z_1, \ldots, Z_N$ una muestra aleatoria simple de una variable aleatoria $Z$ que sigue una distribución de Bernouilli con media $E[Z]$. Sea $\bar{Z}$ la media muestral. Sea $\epsilon$ un número real estrictamente positivo. Entonces se cumple que:
@@ -63,18 +67,162 @@ Para un problema de clasificación, definimos $\ell(u,v)=1$ si $u=v$ y $0$ si $u
 \end{lemma}
 
 Supongamos primero que $\mathcal{H} = \{ h \}$. Definamos $I: \mathcal{X} \mapsto \{0,1\}$ como $I(x)=1$ si $h(x) = f(x)$ y $I(x) = 0$ si $h(x) \neq f(x)$. Tenemos entonces que $I$ es una variable aleatoria que sigue una distribución de Bernouilli, cuya esperanza se corresponde con $L_{out}$. Si escribimos $I_n=\ell(x_n, y_n)$, tenemos que $I_1, \ldots, I_n$ es una muestra aleatoria simple de $I$, y podemos aplicar (\ref{hoeffding}) para un $\epsilon > 0$ fijo obteniendo que:
-\begin{align*}
+\begin{align}\label{desig-h}
 	P[ |L_{out}(h) - L_{in}(h)| > \epsilon  ] \leq 2 \epsilon^{-2 \epsilon^2 N}
-\end{align*}
+\end{align}
 
 Esta desigualdad nos dice que, fijado un margen de error $\epsilon$, la diferencia entre $L_{in}$ y $L_{out}$ queda controlada por el tamaño de la muestra. Aumentando el tamaño de $N$, la probabilidad de exceder el margen de error tiende a cero. 
-Ahora supongamos que $\mathcal{H} = \{h_1, \ldots, h_M\}$. Denotemos por $g$ la solución aproximada que obtiene el algoritmo $\mathcal{A}$. Denotemos por $\mathbb{B}$ el evento $|L_{out}(g) - L_{in}(g)| > \epsilon$ y para cada $h_m$, por $\mathbb{B}_m$ el evento $|L_{out}(h_m) - L_{in}(h_m)| > \epsilon$. Se cumple que $  \mathbb{B} = \bigcup_{m=1}^{M} \mathbb{B}_m$.
+
+Ahora supongamos que $\mathcal{H} = \{h_1, \ldots, h_M\}$. Denotemos por $g$ la solución aproximada que obtiene el algoritmo $\mathcal{A}$. Denotemos por $\mathbb{B}$ el evento $|L_{out}(g) - L_{in}(g)| > \epsilon$ y para cada $h_m$, por $\mathbb{B}_m$ el evento $|L_{out}(h_m) - L_{in}(h_m)| > \epsilon$. Se cumple que $ \mathbb{B} \subset \bigcup_{m=1}^{M} \mathbb{B}_m$. Entonces:
+\begin{align*}
+	P[\mathbb{B}] \leq P[\bigcup_{m=1}^{M} \mathbb{B}_m ] \leq \sum_{m=1}^{M} P[ \mathbb{B}_m ]
+\end{align*}
+Podemos aplicar la desigualdad (\ref{desig-h}) a cada término para obtener:
+\begin{align*}
+	P[ |L_{out}(g) - L_{in}(g)| > \epsilon ] \leq 2 M \epsilon^{-2 \epsilon^2 N}
+\end{align*}
+Hemos obtenido una generalización de la desigualdad (\ref{desig-h}) para el caso en que $\mathcal{H}$ tiene más de un elemento, y a la que se le puede aplicar un razonamiento análogo al que hacíamos antes. 
+
+Vamos a escribir la desigualdad anterior de otra forma. Llamemos $\delta = 2 M \epsilon^{-2 \epsilon^2 N}$, luego $\epsilon = \sqrt{ \dfrac{1}{2N} log \left( \dfrac{2M}{\delta} \right) }$. Tenemos que, con probabilidad al menos $1-\delta$, se cumple:
+\begin{align*}
+	L_{out}(g) - L_{in}(g) \leq |L_{out}(g) - L_{in}(g)| \leq \epsilon
+\end{align*}
+de donde, nuevamente con probabilidad al menos $1-\delta$,
+\begin{align}\label{desig_gen_1}
+	L_{out}(g) \leq L_{in}(g) + \sqrt{ \dfrac{1}{2N} log \left( \dfrac{2M}{\delta} \right) }
+\end{align}
+Como vemos, fijada una tolerancia $\delta$ el error $L_{out}$ queda dominado por el error dentro de la muestra, $L_{in}$, más un término positivo. Este término positivo converge a cero cuando el tamaño de la muestra aumenta.
 
 
+\subsection{Dimensión de Vapnik-Chervonenkis}
+En la práctica, la clase de funciones entre la que buscamos la solución será infinita. Para dar una respuesta en este caso, debemos recurrir a un razonamiento más técnico. Exponemos aquí brevemente las ideas básicas de la teoría de la dimensión de Vapnik-Chervonenkis. 
 
+Si $x_1, \ldots, x_N$ son $N$ puntos de $\mathcal{X}$, cada $h \in \mathcal{H}$ genera una dicotomía que podemos denotar por $(h(x_1), \ldots, h(x_N))$.
+\begin{definition}[Dicotomías generadas por $\mathcal{H}$]
+	Sean $x_1, \ldots, x_N \in \mathcal{X}$, las dicotomías generadas por $\mathcal{H}$ en $x_1, \ldots, x_N$ se denotan por $\mathcal{H}(x_1, \ldots, x_N) = \{ (h(x_1), \ldots, h(x_N)) \colon h \in \mathcal{H} \} $
+\end{definition}
 
+\begin{definition}[Función de crecimiento]
+	Sea $\mathcal{H}$ una clase de hipótesis. Definimos la función de crecimiento de $\mathcal{H}$ como 
+	\begin{align*}
+		m_{\mathcal{H}} \colon \mathbb{N} &\to \mathbb{R}\\
+		N &\mapsto \max_{x_1, \ldots, x_N \in \mathcal{X}}  \mathcal{H}(x_1, \ldots, x_N)
+	\end{align*}
+	donde $|A|$ denota el cardinal de $A$.
+\end{definition}
 
+Como  $\mathcal{H}(x_1, \ldots, x_N) \subset \{ 0, 1 \}^N$, entonces $m_{\mathcal{H}}(N) \leq 2^N$ para cada $N \in \mathbb{N}$. Si para algún natural $k$ ocurre que $m_{\mathcal{H}}(k) \leq 2^k$, podemos acotar la función de crecimiento por un polinomio de grado $k-1$:
 
+\begin{prop}
+	Si $m_{\mathcal{H}}(k) \leq 2^k$ para algún número natural $k$, entonces 
+	\begin{align*}
+		m_{\mathcal{H}}(N) \leq \sum_{i=0}^{k-1} \binom{N}{i} \quad \forall N \in \mathbb{N}
+	\end{align*}
+\end{prop}
 
+%\begin{definition}[Punto de ruptura]
+%	Sea $k \in \mathbb{N}$. Si $m_{\mathcal{H}}(k) < 2^k$, entonces $k$ es un punto de ruptura.
+%\end{definition}
+
+La anterior propiedad motiva el concepto clave de esta teoría. La dimensión de Vapnik-Chervonenkis nos permite medir cómo de grande es el conjunto de hipótesis.
+
+\begin{definition}[Dimensión de Vapnik-Chervonenkis]
+	Sea $\mathcal{H}$ una clase de hipótesis. La dimensión de Vapnik-Chervonenkis o dimensión VC de $\mathcal{H}$, denotada por $d_{VC}(\mathcal{H})$, es:
+	\begin{align*}
+		d_{VC}(\mathcal{H}) = \max \{ N \in \mathbb{N} \colon m_{\mathcal{H}}(N) = 2^N \}
+	\end{align*}
+	entendiendo que si $m_{\mathcal{H}}(N) = 2^N$ para cada $N \in \mathbb{N}$, entonces $d_{VC}(\mathcal{H}) = \infty$. 
+\end{definition}
+
+El resultado central de esta teoría, y el cual nos permitirá dar una respuesta a la pregunta que nos planteamos en esta sección, se enuncia como sigue:
+
+\begin{theorem}[Cota VC]
+	Sea $\delta >0$. Entonces:
+	\begin{align*}
+		L_{out}(g) \leq L_{in}(g) + \sqrt{ \dfrac{8}{N} log \left( \dfrac{4 m_{\mathcal{H}}(2N) }{\delta} \right) }
+	\end{align*}
+	con probabilidad al menos $1-\delta$.
+\end{theorem}
+
+Si $d_VC(\mathcal{H})$ es finita, entonces podemos aplicar la proposición 3.4. Al tomar límite cuando $N$ tiende a infinito, vemos que la diferencia entre $L_{out}$ y $L_{in}$ tiende a cero.
+
+Como vemos, esta desigualdad guarda cierto parecido a la que obteníamos cuando $\mathcal{H}$ es finita. Al igual que en aquella, si podemos asegurar que el tamaño de la clase de hipótesis es finito (en este caso a través de la dimensión VC), podemos asegurar que la diferencia entre el error fuera y dentro de la muestra tiende a cero cuando aumenta el tamaño de esta.
 
 \section{Optimización: gradiente descendente}
+En la anterior sección hemos argumentado por qué para obtener un modelo de aprendizaje automático el problema que se resuelve es:
+\begin{gather*}
+	\text{Encontrar $g \in \mathcal{H}$ tal que } L_{in}(g) = \min_{h \in \mathcal{H}} L_{in}(h)
+\end{gather*}
+Por tanto, todos los esfuerzos se centran en minimizar una función $L_{in}$. En la práctica, cada hipótesis $h$ queda completamente determinada por unos parámetros $w \in \mathbb{R}^d$. Entonces, podemos reformular el problema de la siguiente forma:
+\begin{gather*}
+	\text{Encontrar $w^* \in \mathbb{R}^d$ tal que } L_{in}(w^*) = \min_{w \in \mathbb{R}^d} L_{in}(w)
+\end{gather*}
+Nos encontramos ante un problema de optimización y nos interesa conocer métodos para resolverlo.
+
+Vamos a estudiar uno de los métodos más efectivos. En la práctica, los algoritmos basados en el gradiente descendente obtienen muy buenos resultados. Suponiendo que la función que queremos optimizar es diferenciable, la idea del gradiente descendente consiste en partir de un punto aleatorio, y, fijándonos en el gradiente, movernos en la dirección en la que decrece la función. 
+
+\begin{algorithm}
+	\KwIn{Función $F$, tasa de aprendizaje $\eta$}
+	\SetAlgoLined
+	Inicializar w(0)\\
+	\For{t = 0, 1, 2, $\ldots$}{
+		$w(t+1) = w(t) - \eta \nabla F(w(t))$
+	}
+	\caption{Gradiente descendente}
+\end{algorithm}
+
+
+\subsection{Convergencia del método}
+Podemos probar que, bajo ciertas hipótesis no muy restrictivas, el algoritmo llega a obtener un mínimo global. Para ello, vamos a demostrar algunos resultados previos. Fijemos una función $F \colon \mathbb{R}^d \mapsto \mathbb{R}$ tal que $F \in \mathcal{C}^1$. Denotemos por $\| \cdot \|$ a la norma euclídea.
+
+\begin{definition}[Función convexa]
+	Decimos que $F$ es convexa si
+	\begin{align*}
+		F(tx + (1-t)y) \leq tF(x) + (1-t)F(y) \quad \forall x, y \in \mathbb{R}^d, t \in [0,1]
+	\end{align*}
+\end{definition}
+
+\begin{definition}[Gradiente Lipschitz]
+	Decimos que el gradiente de $F$ es lipschitziano con constante $L>0$ si 
+	\begin{align*}
+		\| \nabla F(x) - \nabla F(y)\| \leq L \| x-y \| \quad \forall x, y \in \mathbb{R}^d
+	\end{align*}
+\end{definition}
+
+\begin{lemma}
+	\leavevmode
+	Sean $x, y \in \mathbb{R}^d$.
+	\begin{enumerate}
+		\item Si $F$ es convexa, entonces $$\nabla F(y)^T (x-y) \leq F(x) - F(y)$$
+		\item Si el gradiente de $F$ es lipschitziano con constante $L>0$, entonces $$F(y) \leq F(x) + \nabla F(x)^T(y-x) + \dfrac{L}{2} \| y-x\|^2$$
+	\end{enumerate}
+\end{lemma}
+\begin{proof}
+	\leavevmode
+	\begin{enumerate}
+		\item Fijemos $x, y \in \mathbb{R}^d$. De la definición de convexidad, se cumple que:
+		$$F(y + t(x-y)) - F(y) \leq t (F(x) - F(y)) $$
+		Diviendo por $t>0$ ambos términos, podemos tomar límite cuando $t$ tiende a cero y aplicar la definición de diferencial obteniendo la desigualdad buscada.
+		\item Definimos la función $g(t) = f(x + t(y-x))$ para cada $t \in [0,1]$. Se cumple que $g$ es derivable con $g'(t) = \nabla F(x + t(y-x))^T(y-x)$ para cada $t \in [0,1]$. Aplicando la desigualdad de Cauchy-Schwartz y la definición de gradiente lipschiztiano:
+		
+		\begin{align*}
+			g'(t) - g'(0) & = \left[ \nabla F(x + t(y-x)) - \nabla F(x) \right]^T (y-x) \leq \\
+			&\leq  \| \nabla F(x + t(y-x)) - \nabla F(x) \| \| y-x \| \leq L t \| y-x \|^2
+	 	\end{align*}
+ 		
+ 		Por el teorema fundamental del cálculo:
+ 		\begin{align*}
+ 			F(y) & = g(1) = g(0) + \int_{0}^{1}g'(t)dt \leq g(0) + g'(0) + L \| y-x \|^2 \int_{0}^{1}t dt= \\
+ 			& = F(x) + \nabla F(x)^T(y-x) + \dfrac{L}{2} \| y-x\|^2
+ 		\end{align*}
+	\end{enumerate}
+\end{proof}
+
+\begin{proposition}
+	Sea 
+\end{proposition}
+
+
+
+
+\subsection{Variantes}
