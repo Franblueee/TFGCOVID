@@ -114,7 +114,7 @@ Si $x_1, \ldots, x_N$ son $N$ puntos de $\mathcal{X}$, cada $h \in \mathcal{H}$ 
 Como  $\mathcal{H}(x_1, \ldots, x_N) \subset \{ 0, 1 \}^N$, entonces $m_{\mathcal{H}}(N) \leq 2^N$ para cada $N \in \mathbb{N}$. Si para algún natural $k$ ocurre que $m_{\mathcal{H}}(k) \leq 2^k$, podemos acotar la función de crecimiento por un polinomio de grado $k-1$:
 
 \begin{prop}
-	Si $m_{\mathcal{H}}(k) \leq 2^k$ para algún número natural $k$, entonces 
+	Si $m_{\mathcal{H}}(k) < 2^k$ para algún número natural $k$, entonces 
 	\begin{align*}
 		m_{\mathcal{H}}(N) \leq \sum_{i=0}^{k-1} \binom{N}{i} \quad \forall N \in \mathbb{N}
 	\end{align*}
@@ -275,16 +275,44 @@ Por este motivo se considera una variante llamada \textbf{gradiente descendente 
 	Inicializar w(0)\\ 
 	\For{t = 0, 1, 2, $\ldots$}{
 		Escoger un minibatch $\{x_1, \ldots, x_M\}$\\
-		Calcular $g = \sum_{m=1}^{M} \nabla_w \ell(w, x_m, y_m)$\\
-		$w(t+1) = w(t) - \eta g$
+		Calcular $g(t) = \sum_{m=1}^{M} \nabla_w \ell(w(t), x_m, y_m)$\\
+		$w(t+1) = w(t) - \eta g(t)$
 	}
 	\caption{Gradiente descendente estocástico}
 \end{algorithm}
 
+Por otra parte, debemos realizar una puntualización sobre las hipótesis bajo las cuales el gradiente descendente tiene garantizada su convergencia. En la práctica, las funciones que intentamos minimizar en aprendizaje automático y en Deep Learning no son globalmente convexas y pueden tener muchos mínimos locales que no son globales, así como puntos donde el gradiente se anula (puntos de silla) rodeados de regiones planas.
+
+Al aplicar el gradiente descendente a estas funciones, obtenemos soluciones en los que el valor de la función de pérdida es muy bajo, pero no necesariamente óptimo.
+
 \subsection{Variantes}
 Para usar el gradiente descendente hemos de elegir el criterio de parada y la tasa de aprendizaje. La proposición \ref{prop:convergencia_grad_desc} pone de manifiesto la importancia de elegir un valor correcto para $\eta$. Por otra parte, elegir un criterio de parada erróneo puede hacer que el algoritmo oscile alrededor de un mínimo, obteniendo soluciones cada vez peores.
 
-Existen algunas variantes de SGD que adaptan estos parámetros conforme avanzan las iteraciones. Se ha comprobado empíricamente que en muchos casos su aplicación conduce a mejores resultados. A continuación, describimos brevemente la idea en que se basan algunos de ellos. 
+Existen algunas variantes del gradiente descendente (y por tanto aplicables a SGD) que adaptan estos parámetros conforme avanzan las iteraciones. Se ha comprobado empíricamente que en muchos casos su aplicación conduce a mejores resultados. A continuación, describimos brevemente la idea en que se basan algunos de ellos. 
+
+\subsubsection{SGD con momento}
+Es una técnica para acelerar la convergencia del gradiente descendente. Se basa en acumular en cada iteración $t$ un vector de velocidades $v(t)$ en las direcciones en las que más está descendiendo el valor de la función objetivo:
+\begin{gather*}
+	v(t+1) = \mu v(t) - \eta \nabla F(w(t))\\
+	w(t+1) = w(t) + v(t+1)
+\end{gather*}
+siendo $\eta > 0$ la tasa de aprendizaje y $\mu \in [0,1]$ el coeficiente de momento. 
+
+\subsubsection{Adagrad y RMSprop}
+Adagrad adapta la tasa de aprendizaje a los parámetros $w$. En lugar de mantener la misma para todos, a aquellos que tienen mayores derivadas parciales les corresponde una tasa más baja. Si $w \in \mathbb{R}^d$ definimos:
+\begin{gather*}
+	G(0)_{i} = [ \nabla F(w(0))_{i} ]^2\\
+	G(t+1)_{i} = G(t)_{i} + [ \nabla F(w(t+1))_{i} ]^2
+\end{gather*}
+La regla de actualización queda:
+$$ w(t+1)_{i} = w(t)_{i} - \dfrac{\eta}{\sqrt{G(t)_{i} + \epsilon}} \nabla F(w(t))_{i} $$
+siendo $\eta > 0$ la tasa de aprendizaje y $\epsilon > 0$ un término pequeño para evitar la división por cero.
+
+El mayor inconveniente de Adagrad es que las componentes de $G$ en cada iteración pueden crecer indefinidamente, haciendo que las actualizaciones de los parámetros no tengan efecto. RMSProp intenta solucionar esto definiendo:
+$$ G(t+1)_{i} = \alpha G(t)_{i} + (1-\alpha) [ \nabla F(w(t+1))_{i} ]^2 $$ 
+para $\alpha \in [0,1]$
+
+\subsubsection{Adam}
 
 
 
