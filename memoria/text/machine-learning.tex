@@ -12,7 +12,7 @@ Cuando decimos que un algoritmo aprende, ¿qué entendemos por aprender?
 
 Podemos formular el problema del aprendizaje en los siguientes términos. Sean $\mathcal{X, Y}$ dos conjuntos que llamaremos espacio de entrada y de salida. Sea $\mathcal{D}$ el conjunto de datos o ejemplos.
 
-Queremos aproximar una función objetivo $f: \mathcal{X} \mapsto \mathcal{Y}$ de acuerdo a una medida de error $L: \mathcal{H} \mapsto \mathbb{R}$. Nuestro algoritmo $\mathcal{A}$ usará $\mathcal{D}$ para elegir una función $g: \mathcal{X} \mapsto \mathcal{Y}$ de un conjunto de hipótesis $\mathcal{H}$ que aproxime a $f$.
+Queremos aproximar una función objetivo $f: \mathcal{X} \to \mathcal{Y}$ de acuerdo a una medida de error $L: \mathcal{H} \to \mathbb{R}$. Nuestro algoritmo $\mathcal{A}$ usará $\mathcal{D}$ para elegir una función $g: \mathcal{X} \to \mathcal{Y}$ de un conjunto de hipótesis $\mathcal{H}$ que aproxime a $f$.
 
 La tarea $T$ se corresponde con encontrar la función $f$, la experiencia $E$ con el conjunto de datos $\mathcal{D}$, y la medida de rendimiento con la medida de error $L$.
 
@@ -39,7 +39,7 @@ El algoritmo de aprendizaje usa el conjunto de entrenamiento $\mathcal{D}$, que 
 \textbf{H1.} Tras fijar el espacio $\mathcal{H}$, los ejemplos $x_1, \ldots, x_N$ han sido extraídos de forma independiente de acuerdo a una distribución de probabilidad $P$ sobre el espacio de entrada $\mathcal{X}$.\\ 
 
 La función objetivo $f$ es completamente desconocida. Lo que obtenemos como resultado del aprendizaje es una función $g$ que aproxima a $f$. Para medir cómo de buena es esta aproximación, recurrimos a la función de pérdida $\ell$.
-En la situación más general, tendremos una función $\ell: \mathcal{X} \times \mathcal{X} \times \mathcal{Y} \mapsto \mathbb{R}$, tal que $\ell(h, x, y)$ mide el error que cometemos al asignar a un ejemplo $x$ la etiqueta $h(x)$ cuando su etiqueta correcta es $y$. Definimos 
+En la situación más general, tendremos una función $\ell: \mathcal{H} \times \mathcal{X} \times \mathcal{Y} \to \mathbb{R}$, tal que $\ell(h, x, y)$ mide el error que cometemos al asignar a un ejemplo $x$ la etiqueta $h(x)$ cuando su etiqueta correcta es $y$. Definimos 
 \begin{gather*}
 	L(h) = \mathbb{E}_{X \sim P}[\ell(h, X, f(X))] \quad \forall h \in \mathcal{H}
 \end{gather*}
@@ -55,7 +55,7 @@ y, una vez fijado $\mathcal{D}$, minimizar $L_{in}$ en lugar de $L$:
 \begin{gather*}
 	\text{Encontrar $g \in \mathcal{H}$ tal que } L_{in}(g) = \min_{h \in \mathcal{H}} L_{in}(h)
 \end{gather*}
-Lo que vamos a probar es que reducir $L_{in}$ conlleva reducir $L$, luego podemos aspirar a soluciones subóptimas.
+Lo que vamos a probar es que reducir $L_{in}$ conlleva reducir $L$, luego podemos aspirar a soluciones subóptimas. Realizaremos el razonamiento para un problema de clasificación binaria.
 
 Para un problema de clasificación binaria, definimos $\ell(u,v)=1$ si $u=v$ y $0$ si $u\neq v$. Vamos a omitir la dependencia de $\mathcal{D}$ al escribir $L_{in}$ y vamos a llamar $L_{out} = L(h) = P[h(x) \neq f(x)] \quad \forall h \in \mathcal{H}$. Vamos a usar la desigualdad de Hoeffding:
 
@@ -66,7 +66,7 @@ Para un problema de clasificación binaria, definimos $\ell(u,v)=1$ si $u=v$ y $
 	\end{align}
 \end{lemma}
 
-Supongamos primero que $\mathcal{H} = \{ h \}$. Definamos $I: \mathcal{X} \mapsto \{0,1\}$ como $I(x)=1$ si $h(x) = f(x)$ y $I(x) = 0$ si $h(x) \neq f(x)$. Tenemos entonces que $I$ es una variable aleatoria que sigue una distribución de Bernouilli, cuya esperanza se corresponde con $L_{out}$. Si escribimos $I_n=\ell(x_n, y_n)$, tenemos que $I_1, \ldots, I_n$ es una muestra aleatoria simple de $I$, y podemos aplicar (\ref{hoeffding}) para un $\epsilon > 0$ fijo obteniendo que:
+Supongamos primero que $\mathcal{H} = \{ h \}$. Definamos $I: \mathcal{X} \to \{0,1\}$ como $I(x)=1$ si $h(x) = f(x)$ y $I(x) = 0$ si $h(x) \neq f(x)$. Tenemos entonces que $I$ es una variable aleatoria que sigue una distribución de Bernouilli, cuya esperanza se corresponde con $L_{out}$. Si escribimos $I_n=\ell(x_n, y_n)$, tenemos que $I_1, \ldots, I_n$ es una muestra aleatoria simple de $I$, y podemos aplicar (\ref{hoeffding}) para un $\epsilon > 0$ fijo obteniendo que:
 \begin{align}\label{desig-h}
 	P[ |L_{out}(h) - L_{in}(h)| > \epsilon  ] \leq 2 \epsilon^{-2 \epsilon^2 N}
 \end{align}
@@ -111,7 +111,7 @@ Si $x_1, \ldots, x_N$ son $N$ puntos de $\mathcal{X}$, cada $h \in \mathcal{H}$ 
 	donde $|A|$ denota el cardinal de $A$.
 \end{definition}
 
-Como  $\mathcal{H}(x_1, \ldots, x_N) \subset \{ 0, 1 \}^N$, entonces $m_{\mathcal{H}}(N) \leq 2^N$ para cada $N \in \mathbb{N}$. Si para algún natural $k$ ocurre que $m_{\mathcal{H}}(k) \leq 2^k$, podemos acotar la función de crecimiento por un polinomio de grado $k-1$:
+Como  $\mathcal{H}(x_1, \ldots, x_N) \subset \{ 0, 1 \}^N$, entonces $m_{\mathcal{H}}(N) \leq 2^N$ para cada $N \in \mathbb{N}$. Si para algún natural $k$ ocurre que $m_{\mathcal{H}}(k) < 2^k$, podemos acotar la función de crecimiento por un polinomio de grado $k-1$:
 
 \begin{prop}
 	Si $m_{\mathcal{H}}(k) < 2^k$ para algún número natural $k$, entonces 
@@ -173,7 +173,7 @@ Vamos a estudiar uno de los métodos más efectivos. En la práctica, los algori
 
 
 \subsection{Convergencia del método}
-Podemos probar que, bajo ciertas hipótesis no muy restrictivas, el algoritmo llega a obtener un mínimo global. Para ello, vamos a demostrar algunos resultados previos. Fijemos una función $F \colon \mathbb{R}^d \mapsto \mathbb{R}$ tal que $F \in \mathcal{C}^1$. Denotemos por $\| \cdot \|$ a la norma euclídea.
+Podemos probar que, bajo ciertas hipótesis no muy restrictivas, el algoritmo llega a obtener un mínimo global. Para ello, vamos a demostrar algunos resultados previos. Fijemos una función objetivo $F \colon \mathbb{R}^d \to \mathbb{R}$ tal que $F \in \mathcal{C}^1$. Denotemos por $\| \cdot \|$ a la norma euclídea.
 
 \begin{definition}[Función convexa]
 	Decimos que $F$ es convexa si
@@ -207,7 +207,7 @@ Podemos probar que, bajo ciertas hipótesis no muy restrictivas, el algoritmo ll
 \begin{proof}
 	\leavevmode
 	\begin{enumerate}
-		\item Supongamos que $x^*$ es un mínimo local. Entonces existe $r>0$ tal que $F(x^*) < F(x)$ para cada $x \in B(x^*, r)$. Supongamos para llegar a contradicción que existe $z$ tal que $F(z)<F(x^*)$. Entonces, para $t \in [0,1]$:
+		\item Supongamos que $x^*$ es un mínimo local. Entonces existe $r>0$ tal que $F(x^*) \leq F(x)$ para cada $x \in B(x^*, r)$. Supongamos para llegar a contradicción que existe $z$ tal que $F(z)<F(x^*)$. Entonces, para $t \in [0,1]$:
 		$$ F( tx^* + (1-t)z  ) \leq tF(x^*) + (1-t)F(z) < F(x^*) $$
 		Evaluando en $t=1$ se obtiene que $F(x^*)<F(x^*)$, lo cual no es posible.
 		\item Fijemos $x, y \in \mathbb{R}^d$. De la definición de convexidad, se cumple que:
@@ -228,7 +228,7 @@ Podemos probar que, bajo ciertas hipótesis no muy restrictivas, el algoritmo ll
 
 Podemos probar ya la convergencia del método del gradiente descendente. Supondremos la existencia de un punto donde se alcanza el mínimo de la función $F$. 
 \begin{prop} \label{prop:convergencia_grad_desc}
-	Sea $F \colon \mathbb{R}^d \mapsto \mathbb{R}$ tal que $F \in \mathcal{C}^1$, es convexa y su gradiente es lipschitziano con constante $L>0$. Supongamos que existe $x^*$ tal que $F(x^*) \leq F(x)$ para todo $x \in \mathbb{R}^d$. Sea $\eta \leq \dfrac{1}{L}$. Sea $x_0 \in \mathbb{R}^d$ y definamos $x_k = x_{k-1} - \eta \nabla F(x_{k-1})$ para cada $k \in \mathbb{N}$. Entonces:
+	Sea $F \colon \mathbb{R}^d \to \mathbb{R}$ tal que $F \in \mathcal{C}^1$, es convexa y su gradiente es lipschitziano con constante $L>0$. Supongamos que existe $x^*$ tal que $F(x^*) \leq F(x)$ para todo $x \in \mathbb{R}^d$. Sea $\eta \leq \dfrac{1}{L}$. Sea $x_0 \in \mathbb{R}^d$ y definamos $x_k = x_{k-1} - \eta \nabla F(x_{k-1})$ para cada $k \in \mathbb{N}$. Entonces:
 	\begin{align*}
 		F(x_k) - F(x^*) \leq \dfrac{\| x_0 - x^* \|^2}{2 \eta k}
 	\end{align*} 
@@ -262,7 +262,7 @@ El resultado que acabamos de probar nos garantiza que, si existe un punto en el 
 \subsection{Aplicación en el aprendizaje}
 Recordemos que las funciones de pérdida se definen como:
 $$ L_{in}(w) = \dfrac{1}{N} \sum_{n=1}^{N} \ell(w, x_n, y_n)$$ 
-Asumiendo que $\ell$ es diferenciable, su gradiente se expresará como:
+Asumiendo que para cada $x, y$ se cumple que $w \mapsto \ell(w,x,y)$ es diferenciable, su gradiente se expresará como:
 $$ \nabla L_{in}(w) = \dfrac{1}{N} \sum_{n=1}^{N} \nabla_w \ell(w, x_n, y_n) $$
 
 Si aplicamos el algoritmo de gradiente descendente, en cada iteración tenemos que calcular $\nabla_w \ell$ sobre cada ejemplo de entrenamiento. Lo que ocurre en la práctica, y más en el ámbito del Deep Learning es que el cálculo de los gradientes conlleva también un gran número de operaciones. Esto, sumado a que los conjuntos de datos son muy grandes, hace que la eficiencia sea un aspecto a tener en cuenta.
@@ -290,7 +290,7 @@ Para usar el gradiente descendente hemos de elegir el criterio de parada y la ta
 
 Existen algunas variantes del gradiente descendente (y por tanto aplicables a SGD) que adaptan estos parámetros conforme avanzan las iteraciones. Se ha comprobado empíricamente que en muchos casos su aplicación conduce a mejores resultados. A continuación, describimos brevemente la idea en que se basan algunos de ellos. 
 
-\subsubsection{SGD con momento}
+\subsubsection{Gradiente descendente con momento}
 Es una técnica para acelerar la convergencia del gradiente descendente. Se basa en acumular en cada iteración $t$ un vector de velocidades $v(t)$ en las direcciones en las que más está descendiendo el valor de la función objetivo:
 \begin{gather*}
 	v(t+1) = \mu v(t) - \eta \nabla F(w(t))\\
@@ -299,21 +299,30 @@ Es una técnica para acelerar la convergencia del gradiente descendente. Se basa
 siendo $\eta > 0$ la tasa de aprendizaje y $\mu \in [0,1]$ el coeficiente de momento. 
 
 \subsubsection{Adagrad y RMSprop}
-Adagrad adapta la tasa de aprendizaje a los parámetros $w$. En lugar de mantener la misma para todos, a aquellos que tienen mayores derivadas parciales les corresponde una tasa más baja. Si $w \in \mathbb{R}^d$ definimos:
+Adagrad adapta la tasa de aprendizaje a los parámetros $w$. En lugar de mantener la misma para todos, a aquellos que tienen mayores derivadas parciales les corresponde una tasa más baja. Vamos a llamar $g(t) = \nabla F(w(t+1)) $. Si $w \in \mathbb{R}^d$, definimos:
 \begin{gather*}
-	G(0)_{i} = [ \nabla F(w(0))_{i} ]^2\\
-	G(t+1)_{i} = G(t)_{i} + [ \nabla F(w(t+1))_{i} ]^2
+	G(0) = 0\\
+	G(t+1)_{i} = G(t)_{i} + [ g(t)_{i} ]^2
 \end{gather*}
 La regla de actualización queda:
-$$ w(t+1)_{i} = w(t)_{i} - \dfrac{\eta}{\sqrt{G(t)_{i} + \epsilon}} \nabla F(w(t))_{i} $$
+$$ w(t+1)_{i} = w(t)_{i} - \dfrac{\eta}{\sqrt{G(t)_{i}} + \epsilon} g(t)_{i} $$
 siendo $\eta > 0$ la tasa de aprendizaje y $\epsilon > 0$ un término pequeño para evitar la división por cero.
 
 El mayor inconveniente de Adagrad es que las componentes de $G$ en cada iteración pueden crecer indefinidamente, haciendo que las actualizaciones de los parámetros no tengan efecto. RMSProp intenta solucionar esto definiendo:
-$$ G(t+1)_{i} = \alpha G(t)_{i} + (1-\alpha) [ \nabla F(w(t+1))_{i} ]^2 $$ 
-para $\alpha \in [0,1]$
+$$ G(t+1)_{i} = \alpha G(t)_{i} + (1-\alpha) [ g(t)_{i} ]^2 $$ 
+para $\alpha \in [0,1]$.
 
 \subsubsection{Adam}
-
-
-
+Adam es una abreviación de Adaptive Moment Estimation. Esta variante también adapta las tasas de aprendizaje para cada parámetro. Combina las ideas del gradiente descendente con momento y de RMSprop. Llamando $g(t) = \nabla F(w(t))$:
+\begin{gather*}
+	v(t+1) = \alpha_1 v(t) + (1-\alpha_1) g(t)\\
+	G(t+1)_{i} = \alpha_2 G(t)_{i} + (1-\alpha_2) [ g(t+1)_{i} ]^2
+\end{gather*}
+para $\alpha_1, \alpha_2 \in [0,1]$. Podemos considerar que $v$ y $G$ son estimaciones del primer y segundo momento no centrado del gradiente en cada iteración. Los autores sugieren inicializarlos como $v(0) = G(0) = 0$, lo cual hace que estén sesgados entorno al cero. Proponen corregir el sesgo definiendo:
+\begin{gather*}
+	\hat{v}(t) =\dfrac{1}{1-(\alpha_1)^t} v(t)\\
+	\hat{G}(t) = \dfrac{1}{1-(\alpha_2)^t} G(t)
+\end{gather*}
+La regla de actualización queda:
+$$ w(t+1)_{i} = w(t)_{i} - \dfrac{\eta}{\sqrt{\hat{G}(t)_{i}}  + \epsilon} \hat{v}(t)_i $$
 
