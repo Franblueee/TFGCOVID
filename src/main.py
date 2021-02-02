@@ -1,6 +1,6 @@
 
 from segment import *
-from splitUtils import *
+from splitTrainTest import *
 from CIT import CIT
 from SDNET import *
 
@@ -9,8 +9,8 @@ import random
 
 if __name__ == "__main__":
 
-    #nombre = "COVIDGR1.0reducido"
-    nombre = "COVIDGR1.0"
+    nombre = "COVIDGR1.0reducido"
+    #nombre = "COVIDGR1.0"
 
     image_dir = "data" + os.sep + "input" + os.sep + nombre + "-SinSegmentar"
     cropped_dir = "data" + os.sep + "generated" + os.sep + nombre + os.sep + "cropped"
@@ -30,7 +30,7 @@ if __name__ == "__main__":
     train_data, test_data, val_data = splitTrainTestVal(cropped_dir, cropped_split_dir, train_prop, val_prop)
     
     data_size = 256 
-    num_epochs = 50
+    num_epochs = 2
     batch_size = 8
     classifier_name = 'resnet18'
     lambda_value = 0.00075
@@ -41,7 +41,7 @@ if __name__ == "__main__":
     
     img_rows = img_cols = 224
     batch_size = 8
-    epochs = 50
+    epochs = 2
     fine_tune = True
     random_shift = 0
     horizontal_flip = False
@@ -52,4 +52,4 @@ if __name__ == "__main__":
     reg_file = "tmp_weights.h5"
     save_preds_file = "save_preds.csv"
 
-    #transferLearning(transformed_split_dir, img_rows, img_cols, batch_size, epochs, fine_tune, random_shift, horizontal_flip, random_zoom, random_rotation, save_model_file, use_weights, reg_file, save_preds_file)
+    transferLearning(transformed_split_dir, img_rows, img_cols, batch_size, epochs, fine_tune, random_shift, horizontal_flip, random_zoom, random_rotation, save_model_file, use_weights, reg_file, save_preds_file)

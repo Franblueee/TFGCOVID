@@ -7,6 +7,7 @@ from tensorflow.keras.preprocessing import image
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.applications.resnet50 import preprocess_input
 from tensorflow.keras.utils import to_categorical
+from tensorflow.keras import backend as K
 from sklearn.metrics import classification_report
 
 os.environ['TF_FORCE_GPU_ALLOW_GROWTH'] = 'true'
@@ -194,3 +195,77 @@ def transferLearning(image_dir, imgs_rows, imgs_cols, batch_size, epochs,
     print(results)
     print(acc)
     return results, acc_4, no_concuerda
+
+def crossValidation(base_dir, imgs_rows, imgs_cols, batch_size, epochs, fine_tune, random_shift, horizontal_flip, random_zoom, random_rotation, save_file, use_weights,
+                    regularizer_file, save_preds, folds, results_file):
+
+    recalls_N = []
+    precisions_N = []
+    f1s_N = []
+    recalls_P = []
+    precisions_P = []
+    f1s_P = []
+    accs_2 = []
+    accs_4 = []
+    no_concuerdas = []
+
+    for fold in range(folds):
+        reg_file = str.split(regularizer_file, '.h5')[0] + str(fold) + '.h5'
+        save_preds_file = str.split(save_preds, '.csv')[0] + str(fold) + '.csv'
+        save_model_file = str.split(save_file, '.h5')[0] + str(fold) + '.h5'
+        print("Fold " + str(fold))
+        partition_dir = base_dir + "partition" + str(fold)
+        results, acc_4, no_concuerda = transferLearning(partition_dir, imgs_rows, imgs_cols, batch_size, epochs, fine_tune, random_shift, horizontal_flip, random_zoom, random_rotation, save_model_file, use_weights, reg_file, save_preds_file)
+        with open(results_file, 'a') as f:
+            f.write('\n')
+            f.write('Fold ' + str(fold) + '\n')
+            f.write('Recall N: ')
+            f.write(str(results['N']['recall']))
+            f.write('\n')
+            f.write('Precision N: ')
+            f.write(str(results['N']['precision']))
+            f.write('\n')
+            f.write('F1 N: ')
+            f.write(str(results['N']['f1-score']))
+            f.write('\n')
+            f.write('Recall P: ')
+            f.write(str(results['P']['recall']))
+            f.write('\n')
+            f.write('Precision P: ')
+            f.write(str(results['P']['precision']))
+            f.write('\n')
+            f.write('F1 P: ')
+            f.write(str(results['P']['f1-score']))
+            f.write('\n')
+            f.write('Acc 2: ')
+            f.write(str(results['accuracy']))
+            f.write('\n')
+            f.write('Acc 4: ')
+            f.write(str(acc_4))
+            f.write('\n')
+            f.write('No concuerda: ')
+            f.write(str(no_concuerda))
+            f.write('\n')
+
+        recalls_N.append(results['N']['recall'])
+        precisions_N.append(results['N']['precision'])
+        f1s_N.append(results['N']['f1-score'])
+        recalls_P.append(results['P']['recall'])
+        precisions_P.append(results['P']['precision'])
+        f1s_P.append(results['P']['f1-score'])
+        accs_2.append(results['accuracy'])
+        accs_4.append(acc_4)
+        # no_concuerdas.append(no_concuerda)
+
+        K.clear_session()
+
+    # accs_2 = np.array(accs_2)
+    # accs_4 = np.array(accs_4)
+    # recalls_N = np.array(recalls_N)
+    # precisions_N = np.array(precisions_N)
+    # f1s_N = np.array(f1s_N)
+    # recalls_P = np.array(recalls_P)
+    # precisions_P = np.array(precisions_P)
+    # f1s_P = np.array(f1s_P)
+
+    return accs_2, accs_4, recalls_N, precisions_N, f1s_N, recalls_P, precisions_P, f1s_P
