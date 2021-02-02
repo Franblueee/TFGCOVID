@@ -10,7 +10,7 @@ def save_images(G_dict, input_img, label, class_names, path, name, classifier_na
         tr_img = G_dict[class_name](input_img)
         tr_img = ToPILImage()(tr_img[0].cpu().detach())
         resnet_type = classifier_name.lower().split("t")[-1]
-        print("{}_{}T{}{}.png".format(name, class_names[label.item()],resnet_type, class_name))
+        print("Saving: " path + "/"+"{}_{}T{}{}.png".format(name, class_names[label.item()],resnet_type, class_name))
         tr_img.save(path+"/"+"{}_{}T{}{}.png".format(name, class_names[label.item()],resnet_type,class_name))
 
 class ImageFolderWithPaths(datasets.ImageFolder):
