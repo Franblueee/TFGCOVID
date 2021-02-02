@@ -1,7 +1,6 @@
 *.png
 *.jpg
 *.jpeg
-*.json
 *.pyc
 *.log
 *.aux
@@ -15,3 +14,4 @@
 *.bbl
 *.blg
 *.code-workspace
+*.hdf5
