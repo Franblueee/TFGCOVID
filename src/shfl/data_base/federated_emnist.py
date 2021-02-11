@@ -2,7 +2,7 @@ import numpy as np
 from tensorflow.python.keras.utils.data_utils import get_file
 from scipy.io import loadmat
 from enum import Enum
-import shfl.data_base as db
+from shfl.data_base import data_base as db
 
 
 class Md5Hash(Enum):

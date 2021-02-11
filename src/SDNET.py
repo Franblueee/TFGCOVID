@@ -85,7 +85,7 @@ def transferLearning(image_dir, imgs_rows, imgs_cols, batch_size, epochs,
     #     class_weight = {dic['COVID19']: 1, dic['PNEUMONIA']: 1}
 
     # Creating EarlyStopping Callback
-    earlyS = tf.keras.callbacks.EarlyStopping(monitor = 'val_accuracy', patience = 10, restore_best_weights = True)
+    #earlyS = tf.keras.callbacks.EarlyStopping(monitor = 'val_accuracy', patience = 10, restore_best_weights = True)
     earlyS = tf.keras.callbacks.EarlyStopping(monitor = 'val_acc', patience = 10, restore_best_weights = True)
 
 

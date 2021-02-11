@@ -1,7 +1,10 @@
 import abc
 import numpy as np
 import pandas as pd
-
+import os
+import cv2
+from imutils import paths
+from sklearn.preprocessing import LabelBinarizer
 
 def shuffle_rows(data, labels):
     """
@@ -99,7 +102,6 @@ class DataBase(abc.ABC):
         self._train_data, self._train_labels = shuffle_rows(self._train_data, self._train_labels)
         self._test_data, self._test_labels = shuffle_rows(self._test_data, self._test_labels)
 
-
 class LabeledDatabase(DataBase):
     """
     Class to create generic labeled database from data and labels vectors
@@ -128,4 +130,60 @@ class LabeledDatabase(DataBase):
 
         self.shuffle()
 
+        return self.data
+
+class DatabaseFromDirectory(DataBase):
+    def __init__(self, path, height = None, width = None):
+        train_path = os.path.join(path, "train")
+        test_path = os.path.join(path, "test")
+        
+        self._data = []
+        self._labels = []
+        self._train_data = []
+        self._train_labels = []
+        self._test_data = []
+        self._test_labels = []
+        
+        train_paths = list(paths.list_images(train_path))
+        
+        for image_path in train_paths:
+            label = image_path.split(os.path.sep)[-2]
+
+            image = cv2.imread(image_path)
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            if height != None and width != None:
+                image = cv2.resize(image, (224, 224))
+            
+            self._data.append(image)
+            self._labels.append(label)
+            self._train_data.append(image)
+            self._train_labels.append(label)
+            
+        test_paths = list(paths.list_images(test_path))
+        
+        for image_path in test_paths:
+            label = image_path.split(os.path.sep)[-2]
+
+            image = cv2.imread(image_path)
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            if height != None and width != None:
+                image = cv2.resize(image, (224, 224))
+            
+            self._data.append(image)
+            self._labels.append(label)
+            self._test_data.append(image)
+            self._test_labels.append(label)
+        
+        self._data = np.array(self._data)
+        self._train_data = np.array(self._train_data)
+        self._train_labels = np.array(self._train_labels)
+        self._test_data = np.array(self._test_data)
+        self._test_labels = np.array(self._test_labels)
+        
+        lb = LabelBinarizer()
+        self._labels = lb.fit_transform(self._labels)
+        self._train_labels = lb.transform(self._train_labels)
+        self._test_labels = lb.transform(self._test_labels)
+        
+    def load_data(self):
         return self.data
