@@ -152,7 +152,7 @@ class DatabaseFromDirectory(DataBase):
             image = cv2.imread(image_path)
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             if height != None and width != None:
-                image = cv2.resize(image, (224, 224))
+                image = cv2.resize(image, (height, width))
             
             self._data.append(image)
             self._labels.append(label)
@@ -167,7 +167,7 @@ class DatabaseFromDirectory(DataBase):
             image = cv2.imread(image_path)
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             if height != None and width != None:
-                image = cv2.resize(image, (224, 224))
+                image = cv2.resize(image, (height, width))
             
             self._data.append(image)
             self._labels.append(label)

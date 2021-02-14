@@ -155,7 +155,8 @@ def train(train_set, num_epochs, batch_size, lambda_value, classifier_name, data
 
             classifier.train()
             exp_lr_scheduler.step()
-            for data, target, label in train_bar:
+            for data, target, label in train_bar:            
+                
                 batch_size = data.size(0)
                 running_results['batch_sizes'] += batch_size
 
@@ -166,6 +167,8 @@ def train(train_set, num_epochs, batch_size, lambda_value, classifier_name, data
                 z = Variable(data)
                 if torch.cuda.is_available():
                     z = z.cuda()
+                
+                print(z.shape)
 
                 transformed_imgs = []
                 unfold_labels = []

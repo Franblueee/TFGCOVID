@@ -26,4 +26,4 @@ def CIT(data_dir, transform_dir, dataset, data_size, num_epochs, batch_size, cla
                                                                               transforms.RandomRotation(5)]))
     
     G_dict = train(train_set, num_epochs, batch_size, lambda_value, classifier_name, dataset, data_size)
-    transform_data(G_dict, data_size, data_dir_path, transform_dir_path, classifier_name)
+    #transform_data(G_dict, data_size, data_dir_path, transform_dir_path, classifier_name)
