@@ -9,14 +9,16 @@ import random
 
 if __name__ == "__main__":
 
-    nombre = "COVIDGR1.0reducido"
-    #nombre = "COVIDGR1.0"
+    #nombre = "COVIDGR1.0reducido"
+    nombre = "COVIDGR1.0"
 
-    image_dir = "data" + os.sep + "input" + os.sep + nombre + "-SinSegmentar"
-    cropped_dir = "data" + os.sep + "generated" + os.sep + nombre + os.sep + "cropped"
-    cropped_split_dir = "data" + os.sep + "generated" + os.sep + nombre + os.sep + "cropped-split"
-    transformed_dir = "data" + os.sep + "generated" + os.sep + nombre + os.sep + "transformed"
-    transformed_split_dir = "data" + os.sep + "generated" + os.sep + nombre + os.sep + "transformed-split"
+    centralized_path = "data" + os.sep + nombre + os.sep + "centralized"
+
+    image_dir = centralized_path + os.sep + nombre + "-SinSegmentar"
+    cropped_dir = centralized_path + os.sep + "cropped"
+    cropped_split_dir = centralized_path + os.sep + "cropped-split"
+    transformed_dir = centralized_path + os.sep + "transformed"
+    transformed_split_dir = centralized_path + os.sep + "transformed-split"
 
     SEED = 31416
 
@@ -27,6 +29,7 @@ if __name__ == "__main__":
 
     crop(image_dir, cropped_dir)
     
+    """
     train_data, test_data, val_data = splitTrainTestVal(cropped_dir, cropped_split_dir, train_prop, val_prop)
     
     data_size = 256 
@@ -53,3 +56,4 @@ if __name__ == "__main__":
     save_preds_file = "save_preds.csv"
 
     transferLearning(transformed_split_dir, img_rows, img_cols, batch_size, epochs, fine_tune, random_shift, horizontal_flip, random_zoom, random_rotation, save_model_file, use_weights, reg_file, save_preds_file)
+    """
