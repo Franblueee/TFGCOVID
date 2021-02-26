@@ -4,9 +4,11 @@
 *.code-workspace
 *.hdf5
 *.txt
-*.csv
 *pyc
 *.model
 *-checkpoint.ipynb
 *.zip
 *.json
+*.pdf
+
+*.csv
