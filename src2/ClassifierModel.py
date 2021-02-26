@@ -16,7 +16,7 @@ from CIT.data_utils import sample_loader
 
 class ClassifierModel(shfl.model.DeepLearningModel):  
 
-    def __init__(self, batch_size=None, epochs=1, finetune=True):
+    def __init__(self, batch_size=1, epochs=1, finetune=True):
         
         resnet50 = tf.keras.applications.ResNet50(include_top = False, weights = 'imagenet', pooling = 'avg', input_tensor=Input(shape=(256, 256, 3)))
     
@@ -55,14 +55,14 @@ class ClassifierModel(shfl.model.DeepLearningModel):
         early_stopping = tf.keras.callbacks.EarlyStopping(monitor = 'val_acc', patience = 10, restore_best_weights = True)
         self._model.fit(
             x=train_generator,
-            steps_per_epoch= int(len(data)*0.8) // self._batch_size,
+            steps_per_epoch= int(len(data)*0.9) // self._batch_size,
             validation_data = validation_generator,
             validation_steps = int(len(data)*0.1) // self._batch_size,
             epochs=self._epochs, 
             callbacks = [early_stopping]
         )
     
-    def get_classification_report(self, test_files, dict_labels, G_dict, save_model_file):
+    def get_classification_report(self, test_files, dict_labels, G_dict, save_model_file=None):
         true_labels = []
         preds = []
         no_concuerda = 0

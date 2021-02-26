@@ -21,6 +21,9 @@ def get_federated_data_csv(data_path, csv_path, label_binarizer, width=256, heig
         
     federated_train_data = [[] for i in range(num_nodes)]
     federated_train_label = [[] for i in range(num_nodes)]
+
+    train_data = []
+    train_label = []
     test_data = []
     test_label = []
     
@@ -44,7 +47,13 @@ def get_federated_data_csv(data_path, csv_path, label_binarizer, width=256, heig
                 node = int(row['node'])
                 federated_train_data[node].append(image)
                 federated_train_label[node].append(row['class'])
+                train_data.append(image)
+                train_label.append(row['class'])
     
+    train_data = np.array(train_data)
+    train_label = np.array(train_label)
+    train_label = label_binarizer.transform(train_label)
+
     test_data = np.array(test_data)
     test_label = np.array(test_label)
     test_label = label_binarizer.transform(test_label)
@@ -62,4 +71,4 @@ def get_federated_data_csv(data_path, csv_path, label_binarizer, width=256, heig
         federated_data.add_data_node(node_data)
     
     
-    return federated_data, test_data, test_label, train_files, test_files
+    return federated_data, train_data, train_label, test_data, test_label, train_files, test_files

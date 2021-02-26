@@ -6,7 +6,7 @@ import math
 import torch.nn.functional as F
 import copy
 
-from ..shfl.model import TrainableModel
+from shfl.model import TrainableModel
 from torch import nn
 from torchvision import models, transforms
 from torch.optim import lr_scheduler
