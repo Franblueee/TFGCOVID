@@ -34,6 +34,10 @@ def get_federated_data_csv(data_path, csv_path, label_binarizer, width=256, heig
         csv_reader = csv.DictReader(csv_file)
         for row in csv_reader:
             image_path = data_path + os.sep + row['class'] + os.sep + row['name'] + '.jpg'
+
+            if not os.path.isfile(image_path):
+                image_path = data_path + os.sep + row['class'] + os.sep + row['name'] + '.JPG'
+
             image = cv2.imread(image_path)
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             image = cv2.resize(image, (width, height))
@@ -92,6 +96,10 @@ def get_data_csv(data_path, csv_path, label_binarizer, width=256, height=256):
         csv_reader = csv.DictReader(csv_file)
         for row in csv_reader:
             image_path = data_path + os.sep + row['class'] + os.sep + row['name'] + '.jpg'
+
+            if not os.path.isfile(image_path):
+                image_path = data_path + os.sep + row['class'] + os.sep + row['name'] + '.JPG'
+                
             image = cv2.imread(image_path)
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             image = cv2.resize(image, (width, height))

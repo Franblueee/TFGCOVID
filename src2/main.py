@@ -11,8 +11,8 @@ from CIT.model import CITModel
 from utils import get_federated_data_csv, get_data_csv
 from ClassifierModel import ClassifierModel
 
-args = {"data_path":"../data/COVIDGR1.0-cropped", 
-        "csv_path": "../partitions/partition_iid_3nodes_1.csv",
+args = {"data_path":"../data/COVIDGR1.0-Segmentadas", 
+        "csv_path": "../partitions/partition1.csv",
         "output_path": "../weights",
         "input_path": "",
         "model_name":"transferlearning.model", 
@@ -30,13 +30,16 @@ args = {"data_path":"../data/COVIDGR1.0-cropped",
         "train_network": True
         }
 
-#lambda_values = [float(10**(-n)) for n in range(1, 10)]
-lambda_values = [0.00075]
-
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+lambda_values = [float(10**(-n)) for n in range(1, 10)] + [0.05]
+#lambda_values = [0.05]
+#lambda_values = [1, 0.5, 0.1, 0.075, 0.05, 0.025, 0.01, 0.0075, 0.005, 0.0025, 0.001, 0.00075, 0.0005]
+folds = 3
+
+
 def cit_builder():    
-    return CITModel(['N', 'P'], classifier_name = "resnet18", lambda_values = lambda_values, batch_size=args["batch_size"], epochs=args["epochs_per_FL_round"], device=device)
+    return CITModel(['N', 'P'], classifier_name = "resnet18", lambda_values = lambda_values, folds = folds, batch_size=args["batch_size"], epochs=args["epochs_per_FL_round"], device=device)
 
 def classifier_builder():
     return ClassifierModel(batch_size=args["batch_size"], epochs=args["epochs_per_FL_round"], finetune = args["finetune"])
@@ -97,7 +100,15 @@ def run_centralized_experiment():
     data, label, train_data, train_label, test_data, test_label, train_files, test_files = get_data_csv(args["data_path"], args["csv_path"], lb1)
 
     cit_model = cit_builder()
-    cit_model.train(train_data, train_label)
+    cit_model.train(data, label)
+
+    metrics = cit_model.evaluate(test_data, test_label)
+    print("CIT Classifier Results:")
+    print("Loss: {}".format(metrics[0]))
+    print("Acc: {}".format(metrics[1]))
+    print("F1: {}".format(metrics[2]))
+    print("Precision: {}".format(metrics[3]))
+    print("Recall: {}".format(metrics[4]))
 
     t_train_data, t_train_label = cit_model.transform_data(train_data, train_label, lb1, lb2)
     t_test_data, t_test_label = cit_model.transform_data(test_data, test_label, lb1, lb2)
@@ -115,4 +126,10 @@ def run_centralized_experiment():
 
     classifier_model.get_classification_report(test_files, dict_labels, G_dict)
 
-run_centralized_experiment()
+csv_dir = "../partitions/"
+for csv_file in os.listdir(csv_dir):
+    args["csv_path"] = csv_dir + csv_file
+    print("-------------------------------------------------------------------------------------")
+    print("FILE: " + csv_file)
+    run_centralized_experiment()
+    print("-------------------------------------------------------------------------------------")

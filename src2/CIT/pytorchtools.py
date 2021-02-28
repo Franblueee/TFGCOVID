@@ -2,27 +2,31 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 from PIL import Image
+from torchvision.transforms import ToTensor, Resize
 
 
 class CustomTensorDataset(Dataset):
     """TensorDataset with support of transforms.
     """
-    def __init__(self, data, labels, transform=None):
+    def __init__(self, data, labels, data_size, transform=None):
         self._data = data
         self._labels = labels
-        self.transform = transform
+        self._transform = transform
+        self._data_size = data_size
 
     def __getitem__(self, index):
         x = self._data[index]
         y = self._labels[index]
+        hr_scale = Resize(size=(self._data_size, self._data_size), interpolation=Image.BICUBIC)
+        if self._transform:
+            #x = Image.fromarray(self._data[index].astype(np.uint8))
+            x = Image.fromarray(self._data[index])
+            x = self._transform(x)
+            width, height = x.size
+            if width != self._data_size or height != self._data_size:
+                x = hr_scale(x)
 
-        if self.transform:
-            x = Image.fromarray(self._data[index].astype(np.uint8))
-            x = self.transform(x)
-            #print(x.shape)
-            #x = torch.reshape(x, (x.shape[2], x.shape[0], x.shape[1]))
-
-        return x, y
+        return ToTensor()(x), ToTensor()(x), y
 
     def __len__(self):
         return len(self._data)

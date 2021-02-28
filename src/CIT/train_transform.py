@@ -168,8 +168,6 @@ def train(train_set, num_epochs, batch_size, lambda_value, classifier_name, data
                 if torch.cuda.is_available():
                     z = z.cuda()
                 
-                print(z.shape)
-
                 transformed_imgs = []
                 unfold_labels = []
                 # For each image in the batch, transform it N times (one per generator). Unfold GT label as many

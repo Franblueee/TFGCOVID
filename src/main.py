@@ -9,16 +9,17 @@ import random
 
 if __name__ == "__main__":
 
+
+    path = "data"+ os.sep
+
     #nombre = "COVIDGR1.0reducido"
     nombre = "COVIDGR1.0"
 
-    centralized_path = "data" + os.sep + nombre + os.sep + "centralized"
-
-    image_dir = centralized_path + os.sep + nombre + "-SinSegmentar"
-    cropped_dir = centralized_path + os.sep + "cropped"
-    cropped_split_dir = centralized_path + os.sep + "cropped-split"
-    transformed_dir = centralized_path + os.sep + "transformed"
-    transformed_split_dir = centralized_path + os.sep + "transformed-split"
+    image_dir = path + nombre + "-SinSegmentar"
+    cropped_dir = path + nombre + "-Segmentadas"
+    cropped_split_dir = path + nombre + "-SegmentadasSplit"
+    transformed_dir = path + nombre + "Transformadas2"
+    transformed_split_dir = path + nombre + "Transformadas2Split"
 
     SEED = 31416
 
@@ -27,16 +28,15 @@ if __name__ == "__main__":
     train_prop = 0.8
     val_prop = 0.1
 
-    crop(image_dir, cropped_dir)
+    #crop(image_dir, cropped_dir)
     
-    """
     train_data, test_data, val_data = splitTrainTestVal(cropped_dir, cropped_split_dir, train_prop, val_prop)
     
     data_size = 256 
-    num_epochs = 2
+    num_epochs = 100
     batch_size = 8
     classifier_name = 'resnet18'
-    lambda_value = 0.00075
+    lambda_value = 0.0001
 
     CIT.CIT(cropped_split_dir, transformed_dir, nombre, data_size, num_epochs, batch_size, classifier_name, lambda_value)
 
@@ -44,7 +44,7 @@ if __name__ == "__main__":
     
     img_rows = img_cols = 224
     batch_size = 8
-    epochs = 2
+    epochs = 100
     fine_tune = True
     random_shift = 0
     horizontal_flip = False
@@ -56,4 +56,3 @@ if __name__ == "__main__":
     save_preds_file = "save_preds.csv"
 
     transferLearning(transformed_split_dir, img_rows, img_cols, batch_size, epochs, fine_tune, random_shift, horizontal_flip, random_zoom, random_rotation, save_model_file, use_weights, reg_file, save_preds_file)
-    """

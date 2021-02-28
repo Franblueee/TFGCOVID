@@ -86,16 +86,18 @@ class ClassifierModel(shfl.model.DeepLearningModel):
             
             image = cv2.imread(image_path)
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            image = cv2.resize(image, (224, 224))
+            image = cv2.resize(image, (256, 256))
             
             x = sample_loader(image)
             tp = G_dict['P'](x)
             tp = tp[0].cpu().detach().numpy()
             tp = np.moveaxis(tp, 0, -1)
+            tp = cv2.resize(tp, dsize=(224, 224))
             
             tn = G_dict['N'](x)
             tn = tn[0].cpu().detach().numpy()
             tn = np.moveaxis(tn, 0, -1)
+            tn = cv2.resize(tn, dsize=(224, 224))
 
             tp = np.expand_dims(tp, axis = 0)
             tn = np.expand_dims(tn, axis = 0)
@@ -110,9 +112,9 @@ class ClassifierModel(shfl.model.DeepLearningModel):
             preds_4.append(pred_tp)
             preds_4.append(pred_tn)
             
-            
-            # print('prediccion tp: ' + str(pred_tp))
-            # print('prediccion tn: ' + str(pred_tn))
+            #print(name)
+            #print('prediccion tp: ' + str(pred_tp))
+            #print('prediccion tn: ' + str(pred_tn))
 
             if pred_tp == dict_labels['NTP'] and pred_tn == dict_labels['NTN']:
                 pred = 'N'
