@@ -1,5 +1,6 @@
 *.png
 *.jpg
+*.JPG
 *.jpeg
 *.code-workspace
 *.hdf5

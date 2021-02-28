@@ -18,12 +18,12 @@ class ClassifierModel(shfl.model.DeepLearningModel):
 
     def __init__(self, batch_size=1, epochs=1, finetune=True):
         
-        resnet50 = tf.keras.applications.ResNet50(include_top = False, weights = 'imagenet', pooling = 'avg', input_tensor=Input(shape=(256, 256, 3)))
+        resnet50 = tf.keras.applications.ResNet50(include_top = False, weights = 'imagenet', pooling = 'avg', input_tensor=Input(shape=(224, 224, 3)))
     
         if finetune:
-            resnet50.trainable = False
-        else: 
             resnet50.trainable = True
+        else: 
+            resnet50.trainable = False
     
         # Add last layers
         x = resnet50.output
@@ -36,7 +36,8 @@ class ClassifierModel(shfl.model.DeepLearningModel):
     
         self._criterion = tf.keras.losses.CategoricalCrossentropy()
         self._optimizer = tf.keras.optimizers.SGD(lr = 1e-3, decay = 1e-6, momentum = 0.9, nesterov = True)
-        self._metrics = [tf.keras.metrics.categorical_accuracy]
+        self._metrics = [tf.keras.metrics.CategoricalAccuracy()]
+        #self._metrics = [tf.keras.metrics.Accuracy()]
         
         self._batch_size = batch_size
         self._epochs = epochs
@@ -45,19 +46,22 @@ class ClassifierModel(shfl.model.DeepLearningModel):
     
     def train(self, data, labels):
 
-        train_datagen = ImageDataGenerator(preprocessing_function = preprocess_input, validation_split=0.1)
+        train_datagen = ImageDataGenerator(
+                                            preprocessing_function = preprocess_input,
+                                            validation_split=0.2
+                                          )
         train_generator = train_datagen.flow(data, labels, batch_size=self._batch_size, subset='training')
         validation_generator = train_datagen.flow(data, labels, batch_size=self._batch_size, subset='validation')
 
 
         #early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=5, verbose=0, mode='min')
-        #early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0, patience=0, verbose=0, mode='auto', baseline=None, restore_best_weights=True)
-        early_stopping = tf.keras.callbacks.EarlyStopping(monitor = 'val_acc', patience = 10, restore_best_weights = True)
+        early_stopping = tf.keras.callbacks.EarlyStopping(monitor = 'val_categorical_accuracy', patience = 20, verbose=1, restore_best_weights = True)
+        #early_stopping = tf.keras.callbacks.EarlyStopping(monitor = 'val_acc', patience = 10, restore_best_weights = True)
         self._model.fit(
             x=train_generator,
-            steps_per_epoch= int(len(data)*0.9) // self._batch_size,
+            steps_per_epoch= int(len(data)*0.8) // self._batch_size,
             validation_data = validation_generator,
-            validation_steps = int(len(data)*0.1) // self._batch_size,
+            validation_steps = int(len(data)*0.2) // self._batch_size,
             epochs=self._epochs, 
             callbacks = [early_stopping]
         )
@@ -82,7 +86,7 @@ class ClassifierModel(shfl.model.DeepLearningModel):
             
             image = cv2.imread(image_path)
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            image = cv2.resize(image, (256, 256))
+            image = cv2.resize(image, (224, 224))
             
             x = sample_loader(image)
             tp = G_dict['P'](x)

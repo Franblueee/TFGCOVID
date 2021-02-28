@@ -5,55 +5,25 @@ import numpy as np
 import math
 import torch.nn.functional as F
 import copy
+import cv2
+
 
 from shfl.model import TrainableModel
 from torch import nn
 from torchvision import models, transforms
 from torch.optim import lr_scheduler
 from torch.utils.data import DataLoader, TensorDataset, random_split
+from torch.utils.data.sampler import SubsetRandomSampler
 from torch.autograd import Variable
 
 from CIT.loss import GeneratorLoss
 from CIT.data_utils import sample_loader
+from CIT.pytorchtools import EarlyStopping, CustomTensorDataset
+from sklearn.model_selection import StratifiedKFold
 
 from tqdm import tqdm
 
-from sklearn.metrics import accuracy_score, f1_score
-
-class EarlyStopping:
-    """Early stops the training if validation loss doesn't improve after a given patience."""
-    def __init__(self, patience=7, verbose=False, delta=0):
-        """
-        Args:
-            patience (int): How long to wait after last time validation loss improved.
-                            Default: 7
-            verbose (bool): If True, prints a message for each validation loss improvement. 
-                            Default: False
-            delta (float): Minimum change in the monitored quantity to qualify as an improvement.
-                            Default: 0
-        """
-        self.patience = patience
-        self.verbose = verbose
-        self.counter = 0
-        self.best_score = None
-        self.early_stop = False
-        self.val_loss_min = np.Inf
-        self.delta = delta
-
-    def __call__(self, val_loss):
-
-        score = -val_loss
-
-        if self.best_score is None:
-            self.best_score = score
-        elif score < self.best_score + self.delta:
-            self.counter += 1
-            print(f'EarlyStopping counter: {self.counter} out of {self.patience}')
-            if self.counter >= self.patience:
-                self.early_stop = True
-        else:
-            self.best_score = score
-            self.counter = 0
+from sklearn.metrics import accuracy_score
 
 
 class ResidualBlock(nn.Module):
@@ -73,7 +43,6 @@ class ResidualBlock(nn.Module):
         residual = self.bn2(residual)
 
         return x + residual
-
 
 class Generator(nn.Module):
     def __init__(self):
@@ -101,39 +70,69 @@ class Generator(nn.Module):
         return block7
 
 class CITModel(TrainableModel):
-    def __init__(self, class_names, classifier_name = "resnet18", lambda_value = 0.00075, batch_size=8, epochs=1, device="cpu"):
+    def __init__(self, class_names, classifier_name = "resnet18", lambda_values = [0.00075], batch_size=1, epochs=1, folds = 3, device="cpu"):
         
         self._class_names = class_names
         self._device = device
-        self._lambda_value = lambda_value
+        self._lambda_values = lambda_values
+        self._classifier_name = classifier_name
+        self._folds = folds
+        self._batch_size = batch_size
+        self._epochs = epochs
+
         self._criterion_classifier = nn.CrossEntropyLoss()
         self._metrics = metrics={'accuracy':accuracy_score}
         
-        self._G_dict = {}
-        self._best_G_dict = {}
-        self._G_criterion_dict = {}
-        self._optimizers_dict = {}
+        self._G_dict = self.create_generators()
+        self._best_G_dict = self.create_generators()
+
+        self._G_criterion_dict = self.create_criterion_dict()
+        self._optimizers_dict = self.create_optimizers_dict()
+
+        self._classifier = self.create_classifier()
+
+        self._optimizer = optim.Adam(self._classifier.parameters(), lr=0.001, betas=(0.9, 0.999))
+        self._exp_lr_scheduler = lr_scheduler.StepLR(self._optimizer, step_size=5, gamma=0.1)
+        self._early_stopping = EarlyStopping(patience=10, verbose=True)
+
+        
+
+    def create_generators(self):
+        G_dict = {}
         
         for class_name in self._class_names:
             netG = Generator()
-            self._best_G_dict[class_name] = netG.to(self._device)
-            self._G_dict[class_name] = netG.to(self._device)
-            generator_criterion = GeneratorLoss()
-            self._G_criterion_dict[class_name] = generator_criterion.to(self._device)
-            self._optimizers_dict[class_name] = optim.Adam(self._G_dict[class_name].parameters(),lr=0.0001, weight_decay=1e-4)
+            G_dict[class_name] = netG.to(self._device)
         
+        return G_dict
 
+    def create_criterion_dict(self):
+        G_criterion_dict = {}
+        for class_name in self._class_names:
+            generator_criterion = GeneratorLoss()
+            G_criterion_dict[class_name] = generator_criterion.to(self._device)
+        return G_criterion_dict
+
+    def create_optimizers_dict(self):
+        optimizers_dict = {}
+        
+        for class_name in self._class_names:
+            optimizers_dict[class_name] = optim.Adam(self._G_dict[class_name].parameters(), lr=0.0001, weight_decay=1e-4)
+        
+        return optimizers_dict
+    
+    def create_classifier(self):
         switcher = {
             'resnet50': models.resnet50,
             'resnet18': models.resnet18
         }
         # Get the function from switcher dictionary
-        func = switcher[classifier_name]
-        self._classifier = func(pretrained=True)
+        func = switcher[self._classifier_name]
+        classifier = func(pretrained=True)
 
         # Freeze everything except fully connected
         ct = 0
-        for child in self._classifier.children():
+        for child in classifier.children():
             print("[INFO] FREEZING")
             ct += 1
             if ct < 7:
@@ -141,18 +140,11 @@ class CITModel(TrainableModel):
                     param.requires_grad = False
 
         # Change last layer to output N classes
-        num_ftrs = self._classifier.fc.in_features
-        self._classifier.fc = nn.Linear(num_ftrs, len(self._class_names))
-        self._classifier.name = classifier_name
-        self._classifier.to(self._device)
+        num_ftrs = classifier.fc.in_features
+        classifier.fc = nn.Linear(num_ftrs, len(self._class_names))
+        classifier.to(self._device)
 
-        self._optimizer = optim.Adam(self._classifier.parameters(), lr=0.001, betas=(0.9, 0.999))
-        self._exp_lr_scheduler = lr_scheduler.StepLR(self._optimizer, step_size=5, gamma=0.1)
-        self._early_stopping = EarlyStopping(patience=10, verbose=True)
-
-        self._batch_size = batch_size
-        self._epochs = epochs
-        
+        return classifier
 
     def train(self, data, labels):
         
@@ -164,145 +156,201 @@ class CITModel(TrainableModel):
 
         train_size = int(0.1*len(data))
         val_size = len(data) - train_size
-        dataset = TensorDataset(torch.from_numpy(data), torch.from_numpy(labels))
-        train_dataset, val_dataset = random_split(dataset, [train_size, val_size] )
-        train_loader = DataLoader(dataset=train_dataset, batch_size = self._batch_size, num_workers = 4)
-        val_loader = DataLoader(dataset=val_dataset, batch_size=1, num_workers=4)
 
+        my_transform = transforms.Compose( [ transforms.RandomHorizontalFlip(), transforms.RandomAffine(5), transforms.RandomRotation(5), transforms.ToTensor() ] )
+        dataset = CustomTensorDataset(data, labels, transform = my_transform)
+        
+        #my_transform = transforms.Compose( [ transforms.RandomHorizontalFlip(), transforms.RandomAffine(5), transforms.RandomRotation(5) ] )
+        #dataset = CustomTensorDataset(torch.from_numpy(data), torch.from_numpy(labels), transform = my_transform)
+
+        #train_dataset, val_dataset = random_split(dataset, [train_size, val_size] )
+                
+        best_lambda = self._lambda_values[0]
         best_acc = 0.0
+        best_loss = 9000000
 
-        for epoch in range(self._epochs):
-            train_bar = tqdm(train_loader)
-            running_results = {'batch_sizes': 0, 'd_loss': 0, 'd_corrects': 0, 'd_score': 0, 'g_score': 0}
+        for lambda_class in self._lambda_values:
+            print("LAMBDA: {}".format(lambda_class)) 
 
-            for class_name in self._class_names:
-                running_results['g_loss_'+class_name] = 0
+            best_acc_lambda = 0.0  
+            best_loss_lambda = 10000         
             
-            for class_name in self._class_names:
-                self._G_dict[class_name].to(self._device)
-                self._G_dict[class_name].train()
-            self._classifier.to(self._device)
-            self._classifier.train()
+            kf = StratifiedKFold(n_splits=self._folds, shuffle=True, random_state=1337)
+            for fold_idx, (train_index, val_index) in enumerate(kf.split(X=np.zeros(len(data)), y=labels)):
+                print("FOLD: {}".format(fold_idx))
+                train_sampler = SubsetRandomSampler(train_index)
+                val_sampler = SubsetRandomSampler(val_index)
+                #train_loader = DataLoader(dataset=train_dataset, batch_size = self._batch_size, num_workers = 4, sampler=train_sampler)
+                #val_loader = DataLoader(dataset=val_dataset, batch_size=1, num_workers=4, sampler=val_sampler)
+                
+                train_loader = DataLoader(dataset=dataset, batch_size = self._batch_size, num_workers = 4, sampler=train_sampler)
+                val_loader = DataLoader(dataset=dataset, batch_size=1, num_workers=4, sampler=val_sampler)
+                
+                self._G_dict = self.create_generators()
+                self._best_G_dict = self.create_generators()
+                self._classifier = self.create_classifier()
+                
 
-            for sample, label in train_bar:
-                                
-                sample = sample.reshape( ( sample.shape[0], sample.shape[3], sample.shape[1], sample.shape[2] ) ).float()
-                                
-                target = sample.clone().detach()
+                self._optimizer = optim.Adam(self._classifier.parameters(), lr=0.001, betas=(0.9, 0.999))
+                self._exp_lr_scheduler = lr_scheduler.StepLR(self._optimizer, step_size=5, gamma=0.1)
+                self._early_stopping = EarlyStopping(patience=10, verbose=True)
                 
-                batch_size = sample.size(0)
-                running_results['batch_sizes'] += batch_size
+                for epoch in range(1, self._epochs+1):
+                    train_bar = tqdm(train_loader)
+                    running_results = {'batch_sizes': 0, 'd_loss': 0, 'd_corrects': 0, 'd_score': 0, 'g_score': 0}
 
-                input_img = Variable(target)
-                input_img = input_img.to(self._device)
-                label = label.to(self._device)
-                
-                z = Variable(sample)
-                #z = torch.reshape(z, (z.shape[0], z.shape[3], z.shape[1], z.shape[2]))
-                #z = z.float()
-                z = z.to(self._device)
-                
-                transformed_imgs = []
-                unfold_labels = []
-                # For each image in the batch, transform it N times (one per generator). Unfold GT label as many
-                # times as transformed versions of an image (N times).
-                for idx, ind_label in enumerate(label):
                     for class_name in self._class_names:
-                        tr_image = self._G_dict[class_name](z[idx].unsqueeze(0))[0]
-                        transformed_imgs.append(tr_image)
-                        unfold_labels.append(ind_label.item())
-
-                transformed_imgs = torch.stack(transformed_imgs)
-                unfold_labels = torch.LongTensor(unfold_labels).to(self._device)
-
-                # Predict transformed images
-                classifier_outputs = self._classifier(transformed_imgs)
-                classifier_outputs = classifier_outputs.to(self._device)
-                loss_classifier = self._criterion_classifier(classifier_outputs, unfold_labels)
-
-                # Optimize classifier
-                self._optimizer.zero_grad()
-                loss_classifier.backward(retain_graph=True)
-                self._optimizer.step()
-
-                # Optimize array of generators
-                ce_toGenerator = {}  # Cross entropy loss for each generator
-                for class_name in self._class_names:
-                    current_label = self._class_names.index(class_name)
-                    _, preds = torch.max(classifier_outputs, 1)
-                    class_n_labels = unfold_labels[np.where(unfold_labels.cpu() == current_label)]
-                    indexes = torch.from_numpy(np.where(unfold_labels.cpu() == current_label)[0]).to(self._device)
-                    # Choose predictions for the current class
-                    class_n_outputs = torch.index_select(classifier_outputs, 0, indexes)
-                    if class_n_labels.shape[0] != 0:    # Maybe there are not samples of the current class in the batch
-                        ce_toGenerator[self._class_names[current_label]] = self._criterion_classifier(class_n_outputs, class_n_labels)
-                    else:
-                        ce_toGenerator[class_name] = 0.0
-
-                # Backprop one time per generator
-                for idx, class_name in enumerate(self._class_names):
-                    self._G_dict[class_name].zero_grad()
-                    g_loss = self._G_criterion_dict[class_name](transformed_imgs[idx::len(self._class_names)], input_img, ce_toGenerator[class_name], float(self._lambda_value))
-                    if idx < len(self._class_names)-1:
-                        g_loss.backward(retain_graph=True)
-                    else:
-                        g_loss.backward()
-                    self._optimizers_dict[class_name].step()
-
-                # Re-do computations for obtaining loss after weight updates
-                transformed_imgs = []
-                for idx, ind_label in enumerate(label):
+                        running_results['g_loss_'+class_name] = 0
+                    
                     for class_name in self._class_names:
-                        tr_image = self._G_dict[class_name](z[idx].unsqueeze(0))[0]
-                        transformed_imgs.append(tr_image)
-                transformed_imgs = torch.stack(transformed_imgs)
-                for idx, class_name in enumerate(self._class_names):
-                    g_loss = self._G_criterion_dict[class_name](transformed_imgs[idx::len(self._class_names)], input_img,
-                                                              ce_toGenerator[class_name], float(self._lambda_value))
-                    running_results['g_loss_'+class_name] += g_loss.item() * batch_size
+                        self._G_dict[class_name].to(self._device)
+                        self._G_dict[class_name].train()
+                    self._classifier.to(self._device)
+                    self._classifier.train()
 
-                running_results['d_loss'] += loss_classifier.item() * batch_size
-                _, preds = torch.max(classifier_outputs, 1)
-                running_results['d_corrects'] += torch.sum(preds == unfold_labels.data).item()
+                    for sample, label in train_bar:
+                                        
+                        #sample = sample.reshape( ( sample.shape[0], sample.shape[3], sample.shape[1], sample.shape[2] ) ).float()
+                                        
+                        target = sample.clone().detach()
+                        
+                        batch_size = sample.size(0)
+                        running_results['batch_sizes'] += batch_size
 
-                train_bar.set_description(desc='[%d/%d] Loss_D: %.4f Acc_D: %.4f Loss_G_class1: %.4f Loss_G_class2: %.4f' % (
-                    epoch, self._epochs, running_results['d_loss'] / (len(self._class_names)*running_results['batch_sizes']),
-                    running_results['d_corrects'] / (len(self._class_names)*running_results['batch_sizes']),
-                    running_results['g_loss_'+self._class_names[0]] / (len(self._class_names)*running_results['batch_sizes']),
-                    running_results['g_loss_'+self._class_names[1]] / (len(self._class_names)*running_results['batch_sizes'])))
-        
-            valid_loss, y_true, y_pred, val_results = self.validate(val_loader)
-        
+                        input_img = Variable(target)
+                        input_img = input_img.to(self._device)
+                        label = label.to(self._device)
+                        
+                        z = Variable(sample)
+                        #z = torch.reshape(z, (z.shape[0], z.shape[3], z.shape[1], z.shape[2]))
+                        #z = z.float()
+                        z = z.to(self._device)
+                        
+                        transformed_imgs = []
+                        unfold_labels = []
+                        # For each image in the batch, transform it N times (one per generator). Unfold GT label as many
+                        # times as transformed versions of an image (N times).
+                        for idx, ind_label in enumerate(label):
+                            for class_name in self._class_names:
+                                #print(z[idx].shape)
+                                tr_image = self._G_dict[class_name](z[idx].unsqueeze(0))[0]
+                                transformed_imgs.append(tr_image)
+                                unfold_labels.append(ind_label.item())
+
+                        transformed_imgs = torch.stack(transformed_imgs)
+                        unfold_labels = torch.LongTensor(unfold_labels).to(self._device)
+
+                        # Predict transformed images
+                        classifier_outputs = self._classifier(transformed_imgs)
+                        classifier_outputs = classifier_outputs.to(self._device)
+                        loss_classifier = self._criterion_classifier(classifier_outputs, unfold_labels)
+
+                        # Optimize classifier
+                        self._optimizer.zero_grad()
+                        loss_classifier.backward(retain_graph=True)
+                        self._optimizer.step()
+
+                        # Optimize array of generators
+                        ce_toGenerator = {}  # Cross entropy loss for each generator
+                        for class_name in self._class_names:
+                            current_label = self._class_names.index(class_name)
+                            _, preds = torch.max(classifier_outputs, 1)
+                            class_n_labels = unfold_labels[np.where(unfold_labels.cpu() == current_label)]
+                            indexes = torch.from_numpy(np.where(unfold_labels.cpu() == current_label)[0]).to(self._device)
+                            # Choose predictions for the current class
+                            class_n_outputs = torch.index_select(classifier_outputs, 0, indexes)
+                            if class_n_labels.shape[0] != 0:    # Maybe there are not samples of the current class in the batch
+                                ce_toGenerator[self._class_names[current_label]] = self._criterion_classifier(class_n_outputs, class_n_labels)
+                            else:
+                                ce_toGenerator[class_name] = 0.0
+
+                        # Backprop one time per generator
+                        for idx, class_name in enumerate(self._class_names):
+                            self._G_dict[class_name].zero_grad()
+                            g_loss = self._G_criterion_dict[class_name](transformed_imgs[idx::len(self._class_names)], input_img, ce_toGenerator[class_name], float(lambda_class))
+                            if idx < len(self._class_names)-1:
+                                g_loss.backward(retain_graph=True)
+                            else:
+                                g_loss.backward()
+                            self._optimizers_dict[class_name].step()
+
+                        # Re-do computations for obtaining loss after weight updates
+                        transformed_imgs = []
+                        for idx, ind_label in enumerate(label):
+                            for class_name in self._class_names:
+                                tr_image = self._G_dict[class_name](z[idx].unsqueeze(0))[0]
+                                transformed_imgs.append(tr_image)
+                        transformed_imgs = torch.stack(transformed_imgs)
+                        for idx, class_name in enumerate(self._class_names):
+                            g_loss = self._G_criterion_dict[class_name](transformed_imgs[idx::len(self._class_names)], input_img,
+                                                                    ce_toGenerator[class_name], float(lambda_class))
+                            running_results['g_loss_'+class_name] += g_loss.item() * batch_size
+
+                        running_results['d_loss'] += loss_classifier.item() * batch_size
+                        _, preds = torch.max(classifier_outputs, 1)
+                        running_results['d_corrects'] += torch.sum(preds == unfold_labels.data).item()
+
+                        train_bar.set_description(desc='[%d/%d] Loss_D: %.4f Acc_D: %.4f Loss_G_class1: %.4f Loss_G_class2: %.4f' % (
+                            epoch, self._epochs, running_results['d_loss'] / (len(self._class_names)*running_results['batch_sizes']),
+                            running_results['d_corrects'] / (len(self._class_names)*running_results['batch_sizes']),
+                            running_results['g_loss_'+self._class_names[0]] / (len(self._class_names)*running_results['batch_sizes']),
+                            running_results['g_loss_'+self._class_names[1]] / (len(self._class_names)*running_results['batch_sizes'])))
+                
+                    valid_loss, y_true, y_pred, val_results = self.validate(val_loader, self._G_dict, self._classifier)
+                
+                    curr_acc = accuracy_score(y_true, y_pred)
+                    print("Valid Acc = {}".format(curr_acc))
+                    print("Valid Loss = {}".format(valid_loss))
+                    """
+                    if curr_acc >= best_acc:
+                        best_acc = curr_acc
+                        best_lambda = lambda_class
+                        self._best_G_dict = copy.deepcopy(self._G_dict)
+                        self._best_classifier = copy.deepcopy(self._classifier)
+                    """
+
+                    if valid_loss <= best_loss:
+                        best_loss = valid_loss
+                        best_lambda = lambda_class
+                        self._best_G_dict = copy.deepcopy(self._G_dict)
+                        self._best_classifier = copy.deepcopy(self._classifier)
+                    
+                    if curr_acc >= best_acc_lambda:
+                        best_acc_lambda = curr_acc
+                    
+                    if valid_loss < best_loss_lambda:
+                        best_loss_lambda = valid_loss
+                
+                    self._early_stopping(valid_loss)
+                    if self._early_stopping.early_stop:
+                        print("Early stopping, epoch " + str(epoch))
+                        break
+                
+            valid_loss, y_true, y_pred, val_results = self.validate(val_loader, self._best_G_dict, self._best_classifier)
             curr_acc = accuracy_score(y_true, y_pred)
-            print("Valid Acc = {}".format(curr_acc))
-            if curr_acc >= best_acc:
-                best_acc = curr_acc
-                self._best_G_dict = copy.deepcopy(self._G_dict)
-                self._best_classifier = copy.deepcopy(self._classifier)
-        
-            # Save model if val loss decreases
-            self._early_stopping(valid_loss)
-            if self._early_stopping.early_stop:
-                print("Early stopping, epoch " + str(epoch))
-                break
+            print("Summary for LAMBDA = {}".format(lambda_class))
+            print("Valid Acc = {}".format(best_acc_lambda))
+            print("Valid Loss = {}".format(best_loss_lambda))
+
+        print("BEST LAMBDA: {}".format(best_lambda))
         
         self._G_dict = self._best_G_dict
         self._classifier = self._best_classifier
     
 
         
-    def validate(self, val_loader):
+    def validate(self, val_loader, G_dict, classifier):
         valid_losses = []  # Store losses for each val img
         
         for class_name in self._class_names:
-            self._G_dict[class_name].to(self._device)
-        self._classifier.to(self._device)
+            G_dict[class_name].to(self._device)
+        classifier.to(self._device)
             
             
         # Set models for predicting
         for class_name in self._class_names:
-            self._G_dict[class_name].eval()
-        self._classifier.eval()
+            G_dict[class_name].eval()
+        classifier.eval()
 
         val_bar = tqdm(val_loader)
         val_results = {'mse': 0, 'batch_sizes': 0, 'd_corrects': 0}
@@ -311,7 +359,7 @@ class CITModel(TrainableModel):
 
         # Begin inference
         for sample, label in val_bar:
-            sample = sample.reshape( ( sample.shape[0], sample.shape[3], sample.shape[1], sample.shape[2] ) ).float()
+            #sample = sample.reshape( ( sample.shape[0], sample.shape[3], sample.shape[1], sample.shape[2] ) ).float()
             label = label.to(self._device)
             batch_size = sample.size(0)
             val_results['batch_sizes'] += batch_size
@@ -320,8 +368,8 @@ class CITModel(TrainableModel):
 
             classifier_outputs = []
             for idx, class_name in enumerate(self._class_names):
-                sr = self._G_dict[class_name](sample)
-                out = self._classifier(sr)
+                sr = G_dict[class_name](sample)
+                out = classifier(sr)
                 classifier_outputs.append(out)
             
             total_outputs = torch.cat(classifier_outputs, 1).squeeze()
@@ -371,7 +419,7 @@ class CITModel(TrainableModel):
         with torch.no_grad():
             for element in dataloader:
                 sample = element[0].float()
-                sample = sample.reshape( ( sample.shape[0], sample.shape[3], sample.shape[1], sample.shape[2] ) ).float()
+                #sample = sample.reshape( ( sample.shape[0], sample.shape[3], sample.shape[1], sample.shape[2] ) ).float()
                 sample.requires_grad = False
                 sample = sample.to(self._device)
                 
@@ -462,6 +510,7 @@ class CITModel(TrainableModel):
                 y = self._G_dict[class_name](x)
                 y = y[0].cpu().detach().numpy()
                 y = np.moveaxis(y, 0, -1)
+                y = cv2.resize(y, dsize=(224, 224))
                 new_data.append(y)
                 new_label = str(label) + "T" + class_name
                 new_labels.append(new_label)

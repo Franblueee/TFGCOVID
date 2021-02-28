@@ -1,5 +1,31 @@
 import numpy as np
 import torch
+from torch.utils.data import Dataset
+from PIL import Image
+
+
+class CustomTensorDataset(Dataset):
+    """TensorDataset with support of transforms.
+    """
+    def __init__(self, data, labels, transform=None):
+        self._data = data
+        self._labels = labels
+        self.transform = transform
+
+    def __getitem__(self, index):
+        x = self._data[index]
+        y = self._labels[index]
+
+        if self.transform:
+            x = Image.fromarray(self._data[index].astype(np.uint8))
+            x = self.transform(x)
+            #print(x.shape)
+            #x = torch.reshape(x, (x.shape[2], x.shape[0], x.shape[1]))
+
+        return x, y
+
+    def __len__(self):
+        return len(self._data)
 
 class EarlyStopping:
     """Early stops the training if validation loss doesn't improve after a given patience."""
@@ -21,13 +47,12 @@ class EarlyStopping:
         self.val_loss_min = np.Inf
         self.delta = delta
 
-    def __call__(self, val_loss, model, G_dict, path, idx=""):
+    def __call__(self, val_loss):
 
         score = -val_loss
 
         if self.best_score is None:
             self.best_score = score
-            #self.save_checkpoint(val_loss, model, G_dict, path, idx)
         elif score < self.best_score + self.delta:
             self.counter += 1
             print(f'EarlyStopping counter: {self.counter} out of {self.patience}')
@@ -35,20 +60,6 @@ class EarlyStopping:
                 self.early_stop = True
         else:
             self.best_score = score
-            #self.save_checkpoint(val_loss, model, G_dict, path, idx)
             self.counter = 0
 
-    def save_checkpoint(self, val_loss, classifier, G_dict, path, idx=""):
-        '''Saves model when validation loss decrease.'''
-        if self.verbose:
-            print(f'Validation loss decreased ({self.val_loss_min:.6f} --> {val_loss:.6f}).  Saving model ...')
-        for key, _ in G_dict.items():
-            if idx != "":
-                torch.save(G_dict[key].state_dict(), path + 'checkpoint_'+str(idx)+'_netG_'+key+'.pth')
-            else:
-                torch.save(G_dict[key].state_dict(), path + 'checkpoint_netG_'+key+'.pth')
-        if idx != "":
-            torch.save(classifier.state_dict(), path+'checkpoint_' + str(idx) + '_netD.pth')
-        else:
-            torch.save(classifier.state_dict(), path+'checkpoint_netD.pth')
-        self.val_loss_min = val_loss
+

@@ -57,13 +57,15 @@ def get_federated_data_csv(data_path, csv_path, label_binarizer, width=256, heig
     test_data = np.array(test_data)
     test_label = np.array(test_label)
     test_label = label_binarizer.transform(test_label)
-    federated_train_data = np.array(federated_train_data)
+    
     
     for n in range(num_nodes):
         federated_train_label[n] = label_binarizer.transform(federated_train_label[n])
+        federated_train_label[n] = np.array(federated_train_label[n])
         federated_train_data[n] = np.array(federated_train_data[n])
     
-    federated_train_label = np.array(federated_train_label)
+    #federated_train_data = np.array(federated_train_data)
+    #federated_train_label = np.array(federated_train_label)
     
     federated_data = FederatedData()
     for node in range(num_nodes):
@@ -72,3 +74,50 @@ def get_federated_data_csv(data_path, csv_path, label_binarizer, width=256, heig
     
     
     return federated_data, train_data, train_label, test_data, test_label, train_files, test_files
+
+def get_data_csv(data_path, csv_path, label_binarizer, width=256, height=256):
+
+    data = []
+    label = []
+    
+    train_data = []
+    train_label = []
+    test_data = []
+    test_label = []
+    
+    train_files = []
+    test_files = []
+    
+    with open(csv_path, mode='r') as csv_file:
+        csv_reader = csv.DictReader(csv_file)
+        for row in csv_reader:
+            image_path = data_path + os.sep + row['class'] + os.sep + row['name'] + '.jpg'
+            image = cv2.imread(image_path)
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+            image = cv2.resize(image, (width, height))
+                
+            if row['set'] == 'test':
+                test_files.append(image_path)
+                test_data.append(image)
+                test_label.append(row['class'])
+            else:
+                train_files.append(image_path)
+                train_data.append(image)
+                train_label.append(row['class'])
+            data.append(image)
+            label.append(row['class'])
+    
+    data = np.array(data)
+    label = np.array(label)
+    label = label_binarizer.transform(label)
+
+    train_data = np.array(train_data)
+    train_label = np.array(train_label)
+    train_label = label_binarizer.transform(train_label)
+
+    test_data = np.array(test_data)
+    test_label = np.array(test_label)
+    test_label = label_binarizer.transform(test_label)
+    
+    
+    return data, label, train_data, train_label, test_data, test_label, train_files, test_files
