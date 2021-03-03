@@ -4,6 +4,7 @@ encolar --command 'python3 src/transform_data.py --data_size 256 --lambda_class 
 
 encolar --command 'python src/main.py ' --directory /mnt/sdd/fcastro/TFGCOVID/ --conda /mnt/sdd/fcastro/envs/TF/
 
+encolar --command 'python main.py ' --directory /mnt/sdd/fcastro/TFGCOVID/src2 --conda /mnt/sdd/fcastro/envs/TF/
 
 
 ssh -L 6006:127.0.0.1:16006 fcastro@gpu.ugr.es

@@ -51,21 +51,26 @@ class FederatedGovernment:
             test_data: test dataset
             test_label: corresponding labels to test dataset
         """
+        i = 0
         for data_node in self._federated_data:
             # Predict local model in test
             evaluation, local_evaluation = data_node.evaluate(data_test, label_test)
             if local_evaluation is not None:
-                print("Performance client " + str(data_node) + ": Global test: " + str(evaluation)
+                print("Performance client " + str(i)  + ": Global test: " + str(evaluation)
                      + ", Local test: " + str(local_evaluation))
             else:
                 print("Test performance client " + str(data_node) + ": " + str(evaluation))
+            i = i+1
 
     def train_all_clients(self):
         """
         Train all the clients
         """
+        i = 0
         for data_node in self._federated_data:
+            print("Training node " + str(i))
             data_node.train_model()
+            i = i+1
 
     def aggregate_weights(self):
         """

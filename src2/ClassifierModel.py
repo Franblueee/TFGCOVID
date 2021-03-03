@@ -3,27 +3,35 @@ import shfl
 import numpy as np
 import os
 import cv2
+import copy
 
 from tensorflow.keras.applications.resnet50 import preprocess_input
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.layers import Input
 from tensorflow.keras.callbacks import EarlyStopping
 
-from sklearn.metrics import classification_report
+from torchvision.transforms import ToTensor, Resize
 
-from CIT.data_utils import sample_loader
+from sklearn.metrics import classification_report
 
 
 class ClassifierModel(shfl.model.DeepLearningModel):  
 
-    def __init__(self, batch_size=1, epochs=1, finetune=True):
+    def __init__(self, G_dict, dict_labels, batch_size=1, epochs=1, finetune=True):
         
-        resnet50 = tf.keras.applications.ResNet50(include_top = False, weights = 'imagenet', pooling = 'avg', input_tensor=Input(shape=(224, 224, 3)))
+        self._G_dict = G_dict
+
+        for class_name in ['P', 'N']:
+            self._G_dict[class_name]= self._G_dict[class_name].to("cpu")
+
+        #dict labels: letra -> bin
+        #inv dict: bin -> letra
+        self._dict_labels = dict_labels
     
         if finetune:
-            resnet50.trainable = True
+            resnet50 = tf.keras.applications.ResNet50(include_top = False, weights = 'imagenet', pooling = 'avg', input_tensor=Input(shape=(224, 224, 3)))
         else: 
-            resnet50.trainable = False
+            resnet50 = tf.keras.applications.ResNet50(include_top = False, weights = None, pooling = 'avg', input_tensor=Input(shape=(224, 224, 3)))
     
         # Add last layers
         x = resnet50.output
@@ -36,7 +44,7 @@ class ClassifierModel(shfl.model.DeepLearningModel):
     
         self._criterion = tf.keras.losses.CategoricalCrossentropy()
         self._optimizer = tf.keras.optimizers.SGD(lr = 1e-3, decay = 1e-6, momentum = 0.9, nesterov = True)
-        self._metrics = [tf.keras.metrics.CategoricalAccuracy()]
+        self._metrics = [tf.keras.metrics.categorical_accuracy]
         #self._metrics = [tf.keras.metrics.Accuracy()]
         
         self._batch_size = batch_size
@@ -48,24 +56,137 @@ class ClassifierModel(shfl.model.DeepLearningModel):
 
         train_datagen = ImageDataGenerator(
                                             preprocessing_function = preprocess_input,
-                                            validation_split=0.2
+                                            #rotation_range = 5,
+                                            #width_shift_range = 0.5,
+                                            #height_shift_range = 0.5,
+                                            #horizontal_flip = True,
+                                            validation_split=0.1
                                           )
-        train_generator = train_datagen.flow(data, labels, batch_size=self._batch_size, subset='training')
-        validation_generator = train_datagen.flow(data, labels, batch_size=self._batch_size, subset='validation')
+        train_generator = train_datagen.flow(data, labels, batch_size=self._batch_size, subset='training', shuffle=True)
+        validation_generator = train_datagen.flow(data, labels, batch_size=self._batch_size, subset='validation', shuffle=False)
 
 
-        #early_stopping = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=5, verbose=0, mode='min')
-        early_stopping = tf.keras.callbacks.EarlyStopping(monitor = 'val_categorical_accuracy', patience = 20, verbose=1, restore_best_weights = True)
-        #early_stopping = tf.keras.callbacks.EarlyStopping(monitor = 'val_acc', patience = 10, restore_best_weights = True)
+        #early_stopping = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience = 10, verbose=1, restore_best_weights = True)
+        early_stopping = tf.keras.callbacks.EarlyStopping(monitor = 'val_categorical_accuracy', patience = 10, verbose=1, restore_best_weights = True)
         self._model.fit(
             x=train_generator,
-            steps_per_epoch= int(len(data)*0.8) // self._batch_size,
+            steps_per_epoch= int(len(data)*0.9) // self._batch_size,
             validation_data = validation_generator,
-            validation_steps = int(len(data)*0.2) // self._batch_size,
+            validation_steps = int(len(data)*0.1) // self._batch_size,
             epochs=self._epochs, 
             callbacks = [early_stopping]
         )
     
+    def predict(self, data):
+
+        preds = []
+        preds_4 = []
+        no_concuerda = 0
+
+        for image in data:
+
+            if image.shape[0] != 256 or image.shape[1] != 256:
+                image = cv2.resize(image, (256, 256))
+            
+            x = ToTensor()(image).float().unsqueeze(0).to("cpu")
+            tp = self._G_dict['P'](x)
+            tp = tp[0].cpu().detach().numpy()
+            tp = np.moveaxis(tp, 0, -1)
+            tp = cv2.resize(tp, dsize=(224, 224))
+
+            tp= cv2.normalize(tp, None, alpha = 0, beta = 255, norm_type = cv2.NORM_MINMAX, dtype = cv2.CV_32F)
+            tp = cv2.resize(tp, dsize=(224, 224))
+            tp = tp.astype(np.uint8)
+
+            tn = self._G_dict['N'](x)
+            tn = tn[0].cpu().detach().numpy()
+            tn = np.moveaxis(tn, 0, -1)
+            tn = cv2.resize(tn, dsize=(224, 224))
+
+            tn = cv2.normalize(tn, None, alpha = 0, beta = 255, norm_type = cv2.NORM_MINMAX, dtype = cv2.CV_32F)
+            tn = cv2.resize(tn, dsize=(224, 224))
+            tn = tn.astype(np.uint8)
+
+            tp = np.expand_dims(tp, axis = 0)
+            tn = np.expand_dims(tn, axis = 0)
+            tp = preprocess_input(tp)
+            tn = preprocess_input(tn)
+
+            prob_tp = self._model.predict(tp)
+            prob_tn = self._model.predict(tn)
+            
+            pred_tp = np.argmax(prob_tp)
+            pred_tn = np.argmax(prob_tn)
+
+            """
+            max_tp = np.argmax(prob_tp)
+            pred_tp = [0 for i in range(4)]
+            pred_tp[max_tp] = 1
+            pred_tp = np.array(pred_tp)
+
+            max_tn = np.argmax(prob_tn)
+            pred_tn = [0 for i in range(4)]
+            pred_tn[max_tn] = 1
+            pred_tn = np.array(pred_tn)
+            """
+
+            preds_4.append(pred_tp)
+            preds_4.append(pred_tn)
+
+            if pred_tp == self._dict_labels['NTP'] and pred_tn == self._dict_labels['NTN']:
+                pred = self._dict_labels['N']
+            elif pred_tp == self._dict_labels['PTP'] and pred_tn == self._dict_labels['PTN']:
+                pred = self._dict_labels['P']
+            else:
+                no_concuerda = no_concuerda + 1
+                # prob_p = prob_tp[0][dict['PTP']] + prob_tp[0][dict['PTN']] + prob_tn[0][dict['PTP']] + prob_tn[0][dict['PTN']]
+                # prob_n = prob_tp[0][dict['NTP']] + prob_tp[0][dict['NTN']] + prob_tn[0][dict['NTP']] + prob_tn[0][dict['NTN']]
+                prob_p = max(prob_tp[0][self._dict_labels['PTP']], prob_tp[0][self._dict_labels['PTN']], prob_tn[0][self._dict_labels['PTP']], prob_tn[0][self._dict_labels['PTN']])
+                prob_n = max(prob_tp[0][self._dict_labels['NTP']], prob_tp[0][self._dict_labels['NTN']], prob_tn[0][self._dict_labels['NTP']], prob_tn[0][self._dict_labels['NTN']])
+                if prob_p >= prob_n:
+                    pred = self._dict_labels['P']
+                else:
+                    pred = self._dict_labels['N']
+
+            preds.append(pred)
+
+        preds = np.array(preds)
+        preds_4 = np.array(preds_4)
+
+        return preds, preds_4, no_concuerda
+
+    def evaluate(self, data, labels):
+        preds, preds_4, no_concuerda, = self.predict(data)
+
+        new_labels = [ l[0] for l in labels ]
+
+        new_labels = np.array(new_labels)
+
+        labels_4 = []
+
+        for i in range(len(labels)):
+            if labels[i][0] == self._dict_labels['P']:
+                etiq = 'P'
+            else:
+                etiq = 'N'
+            
+            etiq_tp = etiq + "TP"
+            etiq_tn = etiq + "TN"
+            labels_4.append(self._dict_labels[etiq_tp])
+            labels_4.append(self._dict_labels[etiq_tn])
+
+        labels_4 = np.array(labels_4)
+
+        acc_4 = sum(labels_4 == preds_4)/len(labels_4)
+
+        acc = sum(new_labels == preds)/len(labels)
+
+        cr = classification_report(new_labels, preds, digits = 5)
+
+        metrics = [acc, acc_4, no_concuerda, cr]
+
+        return metrics
+
     def get_classification_report(self, test_files, dict_labels, G_dict, save_model_file=None):
         true_labels = []
         preds = []
@@ -88,12 +209,12 @@ class ClassifierModel(shfl.model.DeepLearningModel):
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             image = cv2.resize(image, (256, 256))
             
-            x = sample_loader(image)
+            x = ToTensor()(image).float().unsqueeze(0).to("cpu")
             tp = G_dict['P'](x)
             tp = tp[0].cpu().detach().numpy()
             tp = np.moveaxis(tp, 0, -1)
             tp = cv2.resize(tp, dsize=(224, 224))
-            
+
             tn = G_dict['N'](x)
             tn = tn[0].cpu().detach().numpy()
             tn = np.moveaxis(tn, 0, -1)
@@ -138,6 +259,12 @@ class ClassifierModel(shfl.model.DeepLearningModel):
         true_labels_4 = np.array(true_labels_4)
         preds_4 = np.array(preds_4)
 
+        print("preds")
+        print(preds)
+
+        print("preds_4")
+        print(preds_4)
+
         tabla_preds[:,1] = true_labels
         tabla_preds[:,2] = preds
         #np.savetxt(save_preds_file, tabla_preds, fmt = '%1s', delimiter = ',')
@@ -147,7 +274,7 @@ class ClassifierModel(shfl.model.DeepLearningModel):
         print('Accuracy 4 clases: ' + str(acc_4))
         print('Numero de veces no concuerda: ' + str(no_concuerda))
         acc = sum(true_labels == preds)/len(true_labels)
-        results = classification_report(true_labels, preds, digits = 5, output_dict = True)
+        results = classification_report(true_labels, preds, digits = 5)
 
         #if results['N']['recall'] >= 0.73 and results['P']['recall'] >= 0.73:
         #    self._model.save(save_model_file)

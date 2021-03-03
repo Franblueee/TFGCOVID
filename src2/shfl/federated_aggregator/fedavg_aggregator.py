@@ -42,3 +42,15 @@ class FedAvgAggregator(FederatedAggregator):
         aggregated_weights = [self._aggregate(*params)
                               for params in zip(*params)]
         return aggregated_weights
+    
+    @dispatch(Variadic[dict])
+    def _aggregate(self, *params):
+        aggregated_weights = { }
+        
+        for k in params[0].keys():
+            vec = [ p[k] for p in params ]
+            aggregated_weights[k] = self._aggregate(vec)[0]
+        
+        return aggregated_weights
+
+
