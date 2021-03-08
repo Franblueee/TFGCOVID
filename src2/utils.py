@@ -77,7 +77,7 @@ def get_federated_data_csv(data_path, csv_path, label_binarizer, width=256, heig
         federated_data.add_data_node(node_data)
     
     
-    return federated_data, train_data, train_label, test_data, test_label, train_files, test_files
+    return federated_data, train_data, train_label, test_data, test_label, train_files, test_files, num_nodes
 
 def get_data_csv(data_path, csv_path, label_binarizer, width=256, height=256):
 

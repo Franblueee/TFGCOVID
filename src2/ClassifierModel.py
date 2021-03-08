@@ -20,9 +20,10 @@ class ClassifierModel(shfl.model.DeepLearningModel):
     def __init__(self, G_dict, dict_labels, batch_size=1, epochs=1, finetune=True):
         
         self._G_dict = G_dict
+        self._device = 'cuda'
 
         for class_name in ['P', 'N']:
-            self._G_dict[class_name]= self._G_dict[class_name].to("cpu")
+            self._G_dict[class_name]= self._G_dict[class_name].to(self._device)
 
         #dict labels: letra -> bin
         #inv dict: bin -> letra
@@ -67,7 +68,7 @@ class ClassifierModel(shfl.model.DeepLearningModel):
 
 
         #early_stopping = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience = 10, verbose=1, restore_best_weights = True)
-        early_stopping = tf.keras.callbacks.EarlyStopping(monitor = 'val_categorical_accuracy', patience = 10, verbose=1, restore_best_weights = True)
+        early_stopping = tf.keras.callbacks.EarlyStopping(monitor = 'val_categorical_accuracy', patience = 20, verbose=1, restore_best_weights = True)
         self._model.fit(
             x=train_generator,
             steps_per_epoch= int(len(data)*0.9) // self._batch_size,
@@ -88,7 +89,7 @@ class ClassifierModel(shfl.model.DeepLearningModel):
             if image.shape[0] != 256 or image.shape[1] != 256:
                 image = cv2.resize(image, (256, 256))
             
-            x = ToTensor()(image).float().unsqueeze(0).to("cpu")
+            x = ToTensor()(image).float().unsqueeze(0).to(self._device)
             tp = self._G_dict['P'](x)
             tp = tp[0].cpu().detach().numpy()
             tp = np.moveaxis(tp, 0, -1)
@@ -181,7 +182,7 @@ class ClassifierModel(shfl.model.DeepLearningModel):
 
         acc = sum(new_labels == preds)/len(labels)
 
-        cr = classification_report(new_labels, preds, digits = 5)
+        cr = classification_report(new_labels, preds, digits = 5, output_dict = True)
 
         metrics = [acc, acc_4, no_concuerda, cr]
 
@@ -209,7 +210,7 @@ class ClassifierModel(shfl.model.DeepLearningModel):
             image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
             image = cv2.resize(image, (256, 256))
             
-            x = ToTensor()(image).float().unsqueeze(0).to("cpu")
+            x = ToTensor()(image).float().unsqueeze(0).to(self._device)
             tp = G_dict['P'](x)
             tp = tp[0].cpu().detach().numpy()
             tp = np.moveaxis(tp, 0, -1)

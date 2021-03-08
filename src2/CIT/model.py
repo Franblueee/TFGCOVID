@@ -82,9 +82,6 @@ class CITModel(TrainableModel):
         self._batch_size = batch_size
         self._epochs = epochs
 
-        self._best_acc = 0.0
-        self._best_loss = np.Inf
-
         self._class_weights = np.array([1.0, 1.0])
 
         #self._metrics = {'accuracy':accuracy_score, 'f1': f1_score, 'precision' : precision_score, 'recall' : recall_score}
@@ -184,23 +181,23 @@ class CITModel(TrainableModel):
             train_loader = DataLoader(dataset=train_dataset, batch_size = self._batch_size, num_workers = 4)
             val_loader = DataLoader(dataset=val_dataset, batch_size=1, num_workers=4)
 
-            #valid_loss, y_true, y_pred, val_results = self.validate(val_loader, best_G_dict, best_classifier, class_weights)
-            #best_acc = accuracy_score(y_true, y_pred)
-            #best_loss = valid_loss            
+            valid_loss, y_true, y_pred, val_results = self.validate(val_loader, best_G_dict, best_classifier)
+            best_acc = accuracy_score(y_true, y_pred)
+            best_loss = valid_loss            
 
             for lambda_class in self._lambda_values:
                 print("[INFO] LAMBDA: {}".format(lambda_class))   
 
                 G_dict, classifier = self.run_epochs(self._epochs, class_weights, train_loader, val_loader, self._best_lambda)
-                valid_loss, y_true, y_pred, val_results = self.validate(val_loader, G_dict, classifier, class_weights)   
+                valid_loss, y_true, y_pred, val_results = self.validate(val_loader, G_dict, classifier)   
                 valid_acc = accuracy_score(y_true, y_pred)
 
                 print("[INFO] Summary of training for LAMBDA = {} (best model values)".format(lambda_class))
                 print("Valid Acc = {}".format(valid_acc))
                 print("Valid Loss = {}".format(valid_loss))
                 
-                if valid_acc >= self._best_acc:
-                    self._best_acc = valid_acc
+                if valid_acc >= best_acc:
+                    best_acc = valid_acc
                     best_G_dict = copy.deepcopy(G_dict)
                     best_classifier = copy.deepcopy(classifier)
                     self._best_lambda = lambda_class
@@ -217,7 +214,24 @@ class CITModel(TrainableModel):
 
                 best_G_dict_lambda = self._G_dict
                 best_classifier_lambda = self._classifier
-                best_acc_lambda = self._best_acc
+                best_acc = 0
+
+                for fold_idx, (train_index, test_index) in enumerate(kf.split(X=np.zeros(len(data)), y=labels)):
+                    train_sampler = SubsetRandomSampler(train_index)
+                    val_sampler = SubsetRandomSampler(val_index)
+                    test_sampler = SubsetRandomSampler(test_index)
+                    
+                    train_loader = DataLoader(dataset=dataset, batch_size = self._batch_size, num_workers = 4, sampler=train_sampler)
+                    val_loader = DataLoader(dataset=dataset, batch_size=1, num_workers=4, sampler=val_sampler)
+                    test_loader = DataLoader(dataset=dataset, batch_size=1, num_workers=4, sampler=val_sampler)
+
+                    valid_loss, y_true, y_pred, val_results = self.validate(test_loader, G_dict, classifier)
+
+                    best_acc = best_acc + accuracy_score(y_true, y_pred)
+
+                best_acc = best_acc / float(self._folds)
+
+                best_acc_lambda = best_acc
 
                 for fold_idx, (train_index, test_index) in enumerate(kf.split(X=np.zeros(len(data)), y=labels)):
                     print("[INFO] FOLD: {}".format(fold_idx))
@@ -238,7 +252,7 @@ class CITModel(TrainableModel):
 
                     G_dict, classifier = self.run_epochs(self._epochs, class_weights, train_loader, val_loader, lambda_class)
 
-                    valid_loss, y_true, y_pred, val_results = self.validate(test_loader, G_dict, classifier, class_weights)
+                    valid_loss, y_true, y_pred, val_results = self.validate(test_loader, G_dict, classifier)
 
                     valid_acc = accuracy_score(y_true, y_pred)
                     
@@ -260,8 +274,8 @@ class CITModel(TrainableModel):
                 print("CV Acc = {}".format(acc_cv))
                 print("CV Loss = {}".format(loss_cv))
 
-                if (acc_cv >= self._best_acc):
-                    self._best_acc = acc_cv
+                if (acc_cv >= best_acc):
+                    best_acc = acc_cv
                     self._best_lambda = lambda_class
                     best_G_dict = copy.deepcopy(best_G_dict_lambda)
                     best_classifier = copy.deepcopy(best_classifier_lambda)
@@ -370,7 +384,7 @@ class CITModel(TrainableModel):
         exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)
         early_stopping = EarlyStopping(patience=10, verbose=True)
 
-        valid_loss, y_true, y_pred, val_results = self.validate(val_loader, G_dict, classifier, class_weights)
+        valid_loss, y_true, y_pred, val_results = self.validate(val_loader, G_dict, classifier)
         best_loss = valid_loss
         best_acc = accuracy_score(y_true, y_pred)
         
@@ -470,7 +484,7 @@ class CITModel(TrainableModel):
                     running_results['g_loss_'+self._class_names[0]] / (len(self._class_names)*running_results['batch_sizes']),
                     running_results['g_loss_'+self._class_names[1]] / (len(self._class_names)*running_results['batch_sizes'])))
                 
-            valid_loss, y_true, y_pred, val_results = self.validate(val_loader, G_dict, classifier, class_weights)
+            valid_loss, y_true, y_pred, val_results = self.validate(val_loader, G_dict, classifier)
                 
             curr_acc = accuracy_score(y_true, y_pred)
             print("\nValid Acc = {}".format(curr_acc))
@@ -493,9 +507,9 @@ class CITModel(TrainableModel):
     
         return best_G_dict['acc'], best_classifier['acc']
 
-    def validate(self, val_loader, G_dict, classifier, class_weights, show=True):
+    def validate(self, val_loader, G_dict, classifier, show=True):
         
-        criterion_classifier = nn.CrossEntropyLoss(weight=torch.from_numpy(class_weights).float().to(self._device))
+        criterion_classifier = nn.CrossEntropyLoss(weight=torch.from_numpy(self._class_weights).float().to(self._device))
 
         valid_losses = []  # Store losses for each val img
         
@@ -612,7 +626,7 @@ class CITModel(TrainableModel):
         dataset = CustomTensorDataset(data, labels, 256)
         data_loader = DataLoader(dataset=dataset, batch_size=1, num_workers=4)
 
-        val_loss, y_true, y_pred, val_results = self.validate(data_loader, self._G_dict, self._classifier, self._class_weights, show=False)
+        val_loss, y_true, y_pred, val_results = self.validate(data_loader, self._G_dict, self._classifier, show=False)
         
         return y_pred
 
@@ -622,11 +636,11 @@ class CITModel(TrainableModel):
         dataset = CustomTensorDataset(data, labels, 256)
         data_loader = DataLoader(dataset=dataset, batch_size=1, num_workers=4)
 
-        val_loss, y_true, y_pred, val_results = self.validate(data_loader, self._G_dict, self._classifier, self._class_weights, show=False)
+        val_loss, y_true, y_pred, val_results = self.validate(data_loader, self._G_dict, self._classifier, show=False)
         
         
         acc = accuracy_score(y_pred, labels)
-        cr = classification_report(y_pred, labels, digits=5)
+        cr = classification_report(y_pred, labels, digits=5, output_dict = True)
 
         metrics = [val_loss, acc, cr]
         
@@ -657,6 +671,8 @@ class CITModel(TrainableModel):
                 dict_weights_tensor = self._G_dict[class_name].state_dict()
                 dict_weights = { k : dict_weights_tensor[k].cpu().numpy() for k in dict_weights_tensor.keys() }
                 weights.append(dict_weights)
+            
+            weights.append(self._class_weights)
         return weights
 
     def set_model_params(self, params):
@@ -672,13 +688,7 @@ class CITModel(TrainableModel):
                 dict_weights_tensor = { k : torch.from_numpy(np.array(dict_weights[k])) for k in dict_weights.keys() }
                 self._G_dict[class_name].load_state_dict(dict_weights_tensor)
             
-            """
-            for i in range(len(self._class_names)):
-                class_name = self._class_names[i]
-                for ant, post in zip(self._G_dict[class_name].parameters(), params[i+1]):
-                    #ant.data = torch.from_numpy(post).float()
-                    ant.copy_(torch.from_numpy(post).float())
-            """
+        self._class_weights = params[-1]
 
     def transform_data(self, data, labels, label_binarizer_1, label_binarizer_2):
 
