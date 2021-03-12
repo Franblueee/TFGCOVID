@@ -5,6 +5,7 @@ import os
 
 from shfl.private.data import LabeledData
 from shfl.private.federated_operation import FederatedData
+from imutils import paths
 
 def get_federated_data_csv(data_path, csv_path, label_binarizer, width=256, height=256):
     
@@ -129,3 +130,86 @@ def get_data_csv(data_path, csv_path, label_binarizer, width=256, height=256):
     
     
     return data, label, train_data, train_label, test_data, test_label, train_files, test_files
+
+def shuffle(list):
+    randomize = np.arange(len(list))
+    np.random.shuffle(randomize)
+    new_list = [list[i] for i in randomize]
+
+    return new_list
+
+def federate_data_iid(data, num_nodes):
+    data = shuffle(data)
+
+    federated_data = [ [] for i in range(num_nodes) ]
+
+    for i in range(len(data)):
+        node = np.random.randint(num_nodes)
+        federated_data[node].append(data[0])
+        data.pop(0)
+    
+    return federated_data
+
+def federate_data_iid_balanced(data, num_nodes):
+    data = shuffle(data)
+
+    size_per_node = len(data) // num_nodes
+    rest = len(data) - num_nodes*size_per_node
+
+    federated_data = []
+
+    sum_used = 0
+
+    for n in range(num_nodes):        
+        x = [data[i] for i in range(sum_used, sum_used + size_per_node)]
+        sum_used = sum_used + size_per_node
+        federated_data.append(x)
+    
+    for n in range(rest):
+        federated_data[n].append(data[sum_used])
+        sum_used = sum_used+1
+    
+    return federated_data
+
+def generate_iid_files(train_prop, num_nodes, seeds, path):
+    for s in seeds:
+        np.random.seed(s)
+
+        csv_file_path = "../partitions/partition_iid_"+str(num_nodes)+"nodes_"+str(s)+".csv"
+
+        image_paths = list(paths.list_images(path))
+
+        train_dim = int(train_prop * len(image_paths))
+
+        new_image_paths = shuffle(image_paths)
+
+        train_image_paths = new_image_paths[0:train_dim]
+        test_image_paths = new_image_paths[train_dim:]
+
+        federated_data = federate_data_iid(train_image_paths, num_nodes)
+
+        with open(csv_file_path, mode='w') as csv_file:
+            #fieldnames = ['path', 'name', 'class', 'set', 'node']
+            fieldnames = ['name', 'class', 'set', 'node']
+            writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
+            writer.writeheader()
+
+            set_w = 'test'
+            node = '-1'
+            for image_path in test_image_paths:
+                name = image_path.split(os.path.sep)[-1].split('.')[0]
+                label = image_path.split(os.path.sep)[-2]
+                #writer.writerow({'path': image_path, 'name': name, 'class': label, 'set': set_w, 'node': node})
+                writer.writerow({'name': name, 'class': label, 'set': set_w, 'node': node})
+
+            
+            set_w = 'train'
+            for n in range(num_nodes):
+                node = str(n)
+                for image_path in federated_data[n]:
+                    name = image_path.split(os.path.sep)[-1].split('.')[0]
+                    label = image_path.split(os.path.sep)[-2]
+                    #writer.writerow({'path': image_path, 'name': name, 'class': label, 'set': set_w, 'node': node})
+                    writer.writerow({'name': name, 'class': label, 'set': set_w, 'node': node})
+
+def 
