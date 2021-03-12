@@ -654,11 +654,18 @@ class CITModel(TrainableModel):
         with torch.no_grad():
             weights = []
             
+            """
             class_weights = []
             for param in self._classifier.parameters():
                 class_weights.append(param.cpu().data.numpy())
             weights.append(class_weights)
+            """
+
+            dict_classifier_tensor = self._classifier.state_dict()
+            dict_classifier = { k : dict_classifier_tensor[k].cpu().numpy() for k in dict_classifier_tensor.keys() }
             
+            weights.append(dict_classifier)
+
             for i in range(len(self._class_names)):
                 class_name = self._class_names[i]
                 """
@@ -678,9 +685,17 @@ class CITModel(TrainableModel):
     def set_model_params(self, params):
         with torch.no_grad():
             
+            """
             for ant, post in zip(self._classifier.parameters(), params[0]):
                 #ant.data = torch.from_numpy(post).float()
                 ant.copy_( torch.from_numpy(post).float() )
+            """
+
+
+            dict_classifier = params[0]
+            dict_classifier_tensor = { k : torch.from_numpy(np.array(dict_classifier[k])) for k in dict_classifier.keys() }
+            self._classifier.load_state_dict(dict_classifier_tensor)
+
 
             for i in range(len(self._class_weights)):
                 class_name = self._class_names[i]

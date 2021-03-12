@@ -22,8 +22,8 @@ args = {"data_path":"../data/COVIDGR1.0-Segmentadas",
         "output_path": "../weights",
         "input_path": "",
         "batch_size": 8,
-        "federated_rounds":1,
-        "epochs_per_FL_round": 50,
+        "federated_rounds":10,
+        "epochs_per_FL_round": 5,
         "folds" : 1,
         "lambda_values" : [0.05],
         "num_nodes": 3,
@@ -61,13 +61,11 @@ def get_transformed_data(federated_data, cit_federated_government, test_data, te
     t_federated_data = copy.deepcopy(federated_data)
 
     for i in range(federated_data.num_nodes()):
-        data_node = federated_data[i]
-        t_data_node = t_federated_data[i]
-        data = data_node.query()._data
-        labels = data_node.query()._label
+        data = federated_data[i].query()._data
+        labels = federated_data[i].query()._label
         t_data, t_labels = cit_federated_government.global_model.transform_data(data, labels, lb1, lb2)
-        t_data_node.query()._data = t_data
-        t_data_node.query()._label = t_labels
+        t_federated_data[i].query()._data = t_data
+        t_federated_data[i].query()._label = t_labels
 
     return t_federated_data
 
@@ -154,8 +152,10 @@ def run_federated_experiment():
     print("No concuerda: {}".format(metrics_sdnet[2]))
     print(metrics_sdnet[3])
 
-    outfile = "../results/federated_{}r{}e_3.txt".format(args["federated_rounds"], args["epochs_per_FL_round"])
+    outfile = "../results/federated_{}r{}e_{}nodes.txt".format(args["federated_rounds"], args["epochs_per_FL_round"], args["num_nodes"])
     imprimir_resultados(metrics_cit, metrics_sdnet, outfile)
+
+    torch.cuda.empty_cache()
 
 
 def run_centralized_experiment():
@@ -190,6 +190,8 @@ def run_centralized_experiment():
 
     outfile = "../results/centralized_6.txt".format(args["federated_rounds"], args["epochs_per_FL_round"])
     imprimir_resultados(metrics_cit, metrics_sdnet, outfile)
+
+    torch.cuda.empty_cache()
 
 
 def run_cit():
@@ -295,6 +297,7 @@ def run_sdnet_crossval():
         f.write("CV Acc_4: {}".format(np.mean(cv_acc_4)) + "\n")
         f.close()
 
+"""
 csv_dir = "../partitions/"
 csv_files = ["partition_iid_1nodes_1.csv", "partition_iid_1nodes_2.csv", "partition_iid_1nodes_3.csv", "partition_iid_1nodes_4.csv", "partition_iid_1nodes_5.csv"]
 #csv_files = ["partition_iid_1nodes_2.csv"]
@@ -307,17 +310,9 @@ for csv_file in csv_files:
     #run_sdnet_crossval()
     print("-------------------------------------------------------------------------------------")
 """
-for csv_file in csv_files:
-    args["csv_path"] = csv_dir + csv_file
-    print("-------------------------------------------------------------------------------------")
-    print("FILE: " + csv_file)
-    run_centralized_experiment()
-    #run_cit()
-    #run_sdnet_crossval()
-    print("-------------------------------------------------------------------------------------")
 """
-"""
-csv_files = [ "partition_iid_"+str(n)+"nodes_"+str(id)+".csv" for n in [3, 6] for id in [1,2,3]]
+#csv_files = [ "partition_iid_"+str(n)+"nodes_"+str(id)+".csv" for n in [6] for id in [1,2,3]]
+csv_files = ["partition_iid_3nodes_3.csv"]
 for csv_file in csv_files:
     args["csv_path"] = args["csv_dir"] + csv_file
     print("-------------------------------------------------------------------------------------")
@@ -325,3 +320,21 @@ for csv_file in csv_files:
     run_federated_experiment()
     print("-------------------------------------------------------------------------------------")
 """
+"""
+csv_files = ["partition_iid_3nodes_3.csv"] + [ "partition_iid_"+str(n)+"nodes_"+str(id)+".csv" for n in [3, 6] for id in [1,2,3]]
+for csv_file in csv_files:
+    args["csv_path"] = args["csv_dir"] + csv_file
+    print("-------------------------------------------------------------------------------------")
+    print("FILE: " + csv_file)
+    run_federated_experiment()
+    print("-------------------------------------------------------------------------------------")
+"""
+
+#csv_files = [ "partition_iid_"+str(n)+"nodes_"+str(id)+".csv" for n in [6] for id in [2,3]]
+csv_files = ["partition_iid_6nodes_1.csv"]
+for csv_file in csv_files:
+    args["csv_path"] = args["csv_dir"] + csv_file
+    print("-------------------------------------------------------------------------------------")
+    print("FILE: " + csv_file)
+    run_federated_experiment()
+    print("-------------------------------------------------------------------------------------")

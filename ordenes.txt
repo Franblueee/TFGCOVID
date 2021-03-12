@@ -6,6 +6,8 @@ encolar --command 'python src/main.py ' --directory /mnt/sdd/fcastro/TFGCOVID/ -
 
 encolar --command 'python main.py ' --directory /mnt/sdd/fcastro/TFGCOVID/src2 --conda /mnt/sdd/fcastro/envs/TF/
 
+CUDA_VISIBLE_DEVICES=4 nohup python main.py &> out_federated_10r5e.txt &
+
 
 ssh -L 6006:127.0.0.1:16006 fcastro@gpu.ugr.es
 ssh -L 16006:127.0.0.1:6006 selene
