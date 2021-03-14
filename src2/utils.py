@@ -5,6 +5,7 @@ import os
 
 from shfl.private.data import LabeledData
 from shfl.private.federated_operation import FederatedData
+from shutil import copyfile
 from imutils import paths
 
 def get_federated_data_csv(data_path, csv_path, label_binarizer, width=256, height=256):
@@ -188,7 +189,11 @@ def generate_iid_files(train_prop, num_nodes, seeds, path):
 
         federated_data = federate_data_iid(train_image_paths, num_nodes)
 
-        with open(csv_file_path, mode='w') as csv_file:
+        write_csv_file(federated_data, test_image_paths, csv_file_path)
+
+def write_csv_file(federated_data, test_image_paths, csv_file_path):
+    num_nodes = len(federated_data)
+    with open(csv_file_path, mode='w') as csv_file:
             #fieldnames = ['path', 'name', 'class', 'set', 'node']
             fieldnames = ['name', 'class', 'set', 'node']
             writer = csv.DictWriter(csv_file, fieldnames=fieldnames)
@@ -212,4 +217,142 @@ def generate_iid_files(train_prop, num_nodes, seeds, path):
                     #writer.writerow({'path': image_path, 'name': name, 'class': label, 'set': set_w, 'node': node})
                     writer.writerow({'name': name, 'class': label, 'set': set_w, 'node': node})
 
-def 
+def calculate_label(row):
+    gravedad = row['Gravedad RALE']
+    obs = row['Clase observada radiólogo']
+    pcr = row['Clase PCR (VP, VN, FP, FN)']
+
+    """
+    if obs=='POSITIVO' and (pcr=='FP' or pcr=='VP'):
+        label = 'P'
+    else:
+        label = 'N'
+    """
+    if gravedad=='NORMAL':
+        if pcr == 'VP' or pcr=='FN':
+            label = 'P'
+        else:
+            label = 'N'
+    else:
+        label = 'P'
+
+    return label
+
+def classify_images(metadata_file, data_path, classified_data_path):
+    with open(metadata_file, mode='r') as csv_file:
+        csv_reader = csv.DictReader(csv_file)
+        count = 1
+        for row in csv_reader:
+            tipo = row['Nombre de la imagen (ID-Fecha-Tipo)'].split('-')[-1]
+            if (tipo == 'PA'):
+                name = row['ID (10 dígitos)'] + '-' + row['Fecha radiografía (DDMMAA)']
+                image_path = data_path + os.sep + name + '.jpg'
+
+                label = calculate_label(row)
+
+                new_image_path = classified_data_path + os.sep + label + os.sep + name + '.jpg'
+
+                if os.path.isfile(image_path):
+                    copyfile(image_path, new_image_path) 
+
+def get_hospital_dict(data_path, metadata_file):
+    hospital_dict = {"San Cecilio" : [], "MOTRIL" : [], "ELCHE" : [], "BAZA" : [], "Loja" : [], "La Zubia" : [], "Gran Capitán" : []}
+    with open(metadata_file, mode='r') as csv_file:
+        csv_reader = csv.DictReader(csv_file)
+        count = 1
+        for row in csv_reader:
+            tipo = row['Nombre de la imagen (ID-Fecha-Tipo)'].split('-')[-1]
+
+            if (tipo == 'PA'):
+                name = row['ID (10 dígitos)'] + '-' + row['Fecha radiografía (DDMMAA)']
+                #name = row['Nombre imagen: anonimizar(ID + fecha + Tipo)']
+                procedencia = row['Procedencia']
+                if procedencia == "SAN CECILIO":
+                    procedencia = "San Cecilio"
+                
+                label = calculate_label(row)
+                image_path = data_path + os.sep + label + os.sep + name + '.jpg'
+
+                if os.path.isfile(image_path):
+                    hospital_dict[procedencia].append(image_path)
+
+    return hospital_dict
+
+def get_rale_dict(data_path, metadata_file):
+    niveles_rale_dict = {"NEGATIVE": [], "NORMAL-PCR+": [], "LEVE": [], "MODERADO": [], "GRAVE" : []}
+    keys = [k for k in range(9)] + ['N']
+    puntos_rale_dict = {k : [] for k in keys}
+    with open(metadata_file, mode='r') as csv_file:
+        csv_reader = csv.DictReader(csv_file)
+        count = 1
+        for row in csv_reader:
+
+            tipo = row['Nombre de la imagen (ID-Fecha-Tipo)'].split('-')[-1]
+
+            if (tipo == 'PA'):
+                
+                label = calculate_label(row)
+                name = row['ID (10 dígitos)'] + '-' + row['Fecha radiografía (DDMMAA)']
+                #name = row['Nombre imagen: anonimizar(ID + fecha + Tipo)']
+                puntos = int(row['Puntos RALE'])
+                gravedad = row['Gravedad RALE']
+                pcr = row['Clase PCR (VP, VN, FP, FN)']
+                if gravedad=='NORMAL':
+                    if label=='P':
+                        gravedad = "NORMAL-PCR+"
+                    else:
+                        gravedad = "NEGATIVE"
+
+                if puntos == 0 and label=='N':
+                    puntos = 'N'
+                
+                image_path = data_path + os.sep + label + os.sep + name + '.jpg'
+
+                if os.path.isfile(image_path):
+                    niveles_rale_dict[gravedad].append(image_path)
+                    puntos_rale_dict[puntos].append(image_path)
+    return niveles_rale_dict, puntos_rale_dict
+
+def get_demograf_dict(data_path, metadata_file):
+    demograf_dict = { "Hombres<=50": [], "Mujeres<=50" : [], "Hombres(50,65]" : [], "Mujeres(50,65]" : [], "Hombres>65" : [], "Mujeres>65" : [] }
+    with open(metadata_file, mode='r') as csv_file:
+        csv_reader = csv.DictReader(csv_file)
+        count = 1
+        for row in csv_reader:
+            name = row['ID (10 dígitos)'] + '-' + row['Fecha radiografía (DDMMAA)']
+            #name = row['Nombre imagen: anonimizar(ID + fecha + Tipo)']
+            sexo = row['Sexo (M, V) ']
+            edad = int(row['Edad'])
+            
+            tipo = row['Nombre de la imagen (ID-Fecha-Tipo)'].split('-')[-1]
+
+            if (tipo == 'PA'):
+                """
+                label = 'N'          
+                image_path = data_path + os.sep + label + os.sep + name + '.jpg'
+                if not os.path.isfile(image_path):
+                    label = 'P'
+                    image_path = data_path + os.sep + label + os.sep + name + '.jpg'
+                """
+                label = calculate_label(row)
+                image_path = data_path + os.sep + label + os.sep + name + '.jpg'
+
+                if os.path.isfile(image_path):
+                    
+                    if edad <= 50:
+                        if sexo == 'V':
+                            demograf_dict["Hombres<=50"].append(image_path)                        
+                        else:
+                            demograf_dict["Mujeres<=50"].append(image_path)                      
+                    elif edad > 65:
+                        if sexo == 'V':
+                            demograf_dict["Hombres>65"].append(image_path)                        
+                        else:
+                            demograf_dict["Mujeres>65"].append(image_path)                       
+                    else:
+                        if sexo == 'V':
+                            demograf_dict["Hombres(50,65]"].append(image_path)                        
+                        else:
+                            demograf_dict["Mujeres(50,65]"].append(image_path)
+
+    return demograf_dict
