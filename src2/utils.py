@@ -222,11 +222,11 @@ def calculate_label(row):
     obs = row['Clase observada radiólogo']
     pcr = row['Clase PCR (VP, VN, FP, FN)']
 
-    """
-    if obs=='POSITIVO' and (pcr=='FP' or pcr=='VP'):
+    if pcr == 'VP' or pcr=='FN':
         label = 'P'
     else:
         label = 'N'
+
     """
     if gravedad=='NORMAL':
         if pcr == 'VP' or pcr=='FN':
@@ -235,6 +235,7 @@ def calculate_label(row):
             label = 'N'
     else:
         label = 'P'
+    """
 
     return label
 
