@@ -2,6 +2,7 @@ import numpy as np
 import csv
 import cv2
 import os
+import copy
 
 from shfl.private.data import LabeledData
 from shfl.private.federated_operation import FederatedData
@@ -357,3 +358,112 @@ def get_demograf_dict(data_path, metadata_file):
                             demograf_dict["Mujeres(50,65]"].append(image_path)
 
     return demograf_dict
+
+def federate_data_hospital(hospital_dict):
+    federated_data = []
+    test_data = []
+    train_prop = 0.8
+    for k in ["San Cecilio", "MOTRIL", "ELCHE", "BAZA"]:
+        image_paths = hospital_dict[k]
+        image_paths = shuffle(image_paths)
+        train_dim = int(train_prop * len(image_paths))
+        train_image_paths = image_paths[0:train_dim]
+        test_image_paths = image_paths[train_dim:]
+
+        federated_data.append(train_image_paths)
+        test_data.extend(test_image_paths)
+
+    return federated_data, test_data
+
+def federate_data_nivelesrale(niveles_rale_dict):
+
+    neg_imgs = shuffle(copy.deepcopy(niveles_rale_dict["NEGATIVE"]))
+    num_pos = len(niveles_rale_dict["NORMAL-PCR+"]) + len(niveles_rale_dict["LEVE"]) + len(niveles_rale_dict["MODERADO"]) + len(niveles_rale_dict["GRAVE"])
+    num_neg = len(neg_imgs)
+    neg_imgs_dict = {}
+    for k in ["NORMAL-PCR+", "LEVE", "MODERADO", "GRAVE"]:
+        num = int((len(niveles_rale_dict[k])/num_pos) * num_neg)
+        a = []
+        for i in range(num):
+            a.append(neg_imgs[-1])
+            neg_imgs.pop()
+        neg_imgs_dict[k] = a
+
+    keys = ["NORMAL-PCR+", "LEVE", "MODERADO", "GRAVE"]
+    while neg_imgs:
+        q = np.random.randint(1,4)
+        neg_imgs_dict[keys[q]].append(neg_imgs[-1])
+        neg_imgs.pop()
+    
+    federated_data = []
+    test_data = []
+    train_prop = 0.8
+    for k in ["NORMAL-PCR+", "LEVE", "MODERADO", "GRAVE"]:
+        pos_imgs = niveles_rale_dict[k]
+        total = []
+        total.extend(pos_imgs)
+        total.extend(neg_imgs_dict[k])
+        train_dim = int(train_prop * len(total))
+        total = shuffle(total)
+        train_image_paths = total[0:train_dim]
+        test_image_paths = total[train_dim:]
+
+        federated_data.append(train_image_paths)
+        test_data.extend(test_image_paths)
+
+    return federated_data, test_data
+
+def federate_data_puntosrale(puntos_rale_dict):
+    neg_imgs = shuffle(copy.deepcopy(puntos_rale_dict["N"]))
+    num_pos = 0
+    for k in range(9):
+        num_pos = num_pos + len(puntos_rale_dict[k])
+    num_neg = len(neg_imgs)
+    neg_imgs_dict = {}
+    for k in range(9):
+        num = int((len(puntos_rale_dict[k])/num_pos) * num_neg)
+        a = []
+        for i in range(num):
+            a.append(neg_imgs[-1])
+            neg_imgs.pop()
+        neg_imgs_dict[k] = a
+
+    while neg_imgs:
+        q = np.random.randint(0,9)
+        neg_imgs_dict[q].append(neg_imgs[-1])
+        neg_imgs.pop()
+    
+    federated_data = []
+    test_data = []
+    train_prop = 0.8
+    for k in range(9):
+        pos_imgs = puntos_rale_dict[k]
+        total = []
+        total.extend(pos_imgs)
+        total.extend(neg_imgs_dict[k])
+        train_dim = int(train_prop * len(total))
+        total = shuffle(total)
+        train_image_paths = total[0:train_dim]
+        test_image_paths = total[train_dim:]
+
+        federated_data.append(train_image_paths)
+        test_data.extend(test_image_paths)
+
+    return federated_data, test_data
+
+def federate_data_demograf(demograf_dict):
+
+    federated_data = []
+    test_data = []
+    train_prop = 0.8
+    for k in demograf_dict.keys():
+        image_paths = demograf_dict[k]
+        image_paths = shuffle(image_paths)
+        train_dim = int(train_prop * len(image_paths))
+        train_image_paths = image_paths[0:train_dim]
+        test_image_paths = image_paths[train_dim:]
+
+        federated_data.append(train_image_paths)
+        test_data.extend(test_image_paths)
+
+    return federated_data, test_data
