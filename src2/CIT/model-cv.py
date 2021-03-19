@@ -172,7 +172,6 @@ class CITModel(TrainableModel):
         best_loss = valid_loss
         """
 
-
         if (self._folds == 1):
 
             train_size = int(0.9*len(data))
@@ -201,6 +200,7 @@ class CITModel(TrainableModel):
                 print("Valid Acc = {}".format(valid_acc))
                 print("Valid Loss = {}".format(valid_loss))
                 
+                """
                 if valid_acc >= best_acc:
                     best_acc = valid_acc
                     best_G_dict = copy.deepcopy(G_dict)
@@ -212,10 +212,89 @@ class CITModel(TrainableModel):
                     best_G_dict = copy.deepcopy(G_dict)
                     best_classifier = copy.deepcopy(classifier)
                     self._best_lambda = lambda_class
-                """
                 
                 best_classifier = copy.deepcopy(classifier)
                 best_G_dict = copy.deepcopy(G_dict)
+
+        else:
+            
+            kf = StratifiedKFold(n_splits=self._folds, shuffle=True, random_state=1337)
+
+            for lambda_class in self._lambda_values:
+                print("[INFO] LAMBDA: {}".format(lambda_class))
+
+                fold_losses = []
+                fold_accs = []
+
+                best_G_dict_lambda = self._G_dict
+                best_classifier_lambda = self._classifier
+                best_acc = 0
+
+                for fold_idx, (train_index, test_index) in enumerate(kf.split(X=np.zeros(len(data)), y=labels)):
+                    train_sampler = SubsetRandomSampler(train_index)
+                    val_sampler = SubsetRandomSampler(val_index)
+                    test_sampler = SubsetRandomSampler(test_index)
+                    
+                    train_loader = DataLoader(dataset=dataset, batch_size = self._batch_size, num_workers = 4, sampler=train_sampler)
+                    val_loader = DataLoader(dataset=dataset, batch_size=1, num_workers=4, sampler=val_sampler)
+                    test_loader = DataLoader(dataset=dataset, batch_size=1, num_workers=4, sampler=val_sampler)
+
+                    valid_loss, y_true, y_pred, val_results = self.validate(test_loader, G_dict, classifier)
+
+                    best_acc = best_acc + accuracy_score(y_true, y_pred)
+
+                best_acc = best_acc / float(self._folds)
+
+                best_acc_lambda = best_acc
+
+                for fold_idx, (train_index, test_index) in enumerate(kf.split(X=np.zeros(len(data)), y=labels)):
+                    print("[INFO] FOLD: {}".format(fold_idx))
+
+                    val_size = int( len(train_index)*0.1 )
+                    train_size = len(train_index) - val_size
+
+                    val_index = train_index[train_size:]
+                    train_index = train_index[:train_size]
+
+                    train_sampler = SubsetRandomSampler(train_index)
+                    val_sampler = SubsetRandomSampler(val_index)
+                    test_sampler = SubsetRandomSampler(test_index)
+                    
+                    train_loader = DataLoader(dataset=dataset, batch_size = self._batch_size, num_workers = 4, sampler=train_sampler)
+                    val_loader = DataLoader(dataset=dataset, batch_size=1, num_workers=4, sampler=val_sampler)
+                    test_loader = DataLoader(dataset=dataset, batch_size=1, num_workers=4, sampler=val_sampler)
+
+                    G_dict, classifier = self.run_epochs(self._epochs, class_weights, train_loader, val_loader, lambda_class)
+
+                    valid_loss, y_true, y_pred, val_results = self.validate(test_loader, G_dict, classifier)
+
+                    valid_acc = accuracy_score(y_true, y_pred)
+                    
+                    if valid_acc >= best_acc_lambda:
+                        best_acc_lambda = valid_acc
+                        best_G_dict_lambda = copy.deepcopy(G_dict)
+                        best_classifier_lambda = copy.deepcopy(classifier)
+
+                    fold_losses.append(valid_loss)
+                    fold_accs.append(valid_acc)
+                
+                    print("[INFO] Summary of training for LAMBDA = {} (best model values of fold {})".format(lambda_class, fold_idx))
+                    print("Valid Acc = {}".format(valid_acc))
+                    print("Valid Loss = {}".format(valid_loss))
+
+                acc_cv = np.mean(fold_accs)
+                loss_cv = np.mean(fold_losses)
+                print("[INFO] Summary for LAMBDA = {} (cross validation values)".format(lambda_class))
+                print("CV Acc = {}".format(acc_cv))
+                print("CV Loss = {}".format(loss_cv))
+
+                if (acc_cv >= best_acc):
+                    best_acc = acc_cv
+                    self._best_lambda = lambda_class
+                    best_G_dict = copy.deepcopy(best_G_dict_lambda)
+                    best_classifier = copy.deepcopy(best_classifier_lambda)
+
+            print("[INFO] BEST LAMBDA: {}".format(self._best_lambda))
         
         self._G_dict = best_G_dict
         self._classifier = best_classifier
@@ -357,7 +436,7 @@ class CITModel(TrainableModel):
                 break
         
         # return G_dict, classifier
-        return best_G_dict['acc'], best_classifier['acc']
+        return best_G_dict['loss'], best_classifier['loss']
 
     def validate(self, val_loader, G_dict, classifier, show=True):
         

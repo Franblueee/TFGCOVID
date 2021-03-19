@@ -12,4 +12,4 @@
 *.json
 *.pdf
 *.csv
-Metadatos.csv
+*.pth

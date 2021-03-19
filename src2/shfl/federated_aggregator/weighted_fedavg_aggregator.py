@@ -43,6 +43,15 @@ class WeightedFedAvgAggregator(FederatedAggregator):
         ponderated_weights = [self._ponderate_weights(i_params, weight)
                               for i_params in params]
         return ponderated_weights
+    
+    @dispatch(dict, np.ScalarType)
+    def _ponderate_weights(self, params, weight):
+        ponderated_weights = {}
+        for k in params[0].keys():
+            vec = [ p[k] for p in params ]
+            res = self._ponderate_weights(*vec, weight)
+            ponderated_weights[k] = res
+        return ponderated_weights
 
     @dispatch(Variadic[np.ndarray, np.ScalarType])
     def _aggregate(self, *ponderated_weights):
@@ -54,4 +63,13 @@ class WeightedFedAvgAggregator(FederatedAggregator):
         """Aggregation of ponderated (nested) lists of arrays"""
         aggregated_weights = [self._aggregate(*params)
                               for params in zip(*ponderated_weights)]
+        return aggregated_weights
+
+    @dispatch(Variadic[dict])
+    def _aggregate(self, *params):
+        aggregated_weights = { }
+        for k in params[0].keys():
+            vec = [ p[k] for p in params ]
+            res = self._aggregate(*vec)
+            aggregated_weights[k] = res
         return aggregated_weights

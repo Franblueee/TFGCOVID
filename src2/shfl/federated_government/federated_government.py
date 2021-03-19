@@ -36,6 +36,8 @@ class FederatedGovernment:
         evaluation = self._model.evaluate(data_test, label_test)
         print("Global model test performance : " + str(evaluation))
 
+        return evaluation
+
     def deploy_central_model(self):
         """
         Deployment of the global learning model to each client (node) in the simulation.
@@ -95,11 +97,15 @@ class FederatedGovernment:
             test_label: Test label for evaluation between rounds
 
         """
+        hist = []
         for i in range(0, n):
             print("Accuracy round " + str(i))
             self.deploy_central_model()
             self.train_all_clients()
             self.evaluate_clients(test_data, test_label)
             self.aggregate_weights()
-            self.evaluate_global_model(test_data, test_label)
+            h = self.evaluate_global_model(test_data, test_label)
+            hist.append(h)
             print("\n\n")
+        
+        return hist

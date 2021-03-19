@@ -49,7 +49,8 @@ class FedAvgAggregator(FederatedAggregator):
         
         for k in params[0].keys():
             vec = [ p[k] for p in params ]
-            aggregated_weights[k] = self._aggregate(vec)[0]
+            res = self._aggregate(*vec)
+            aggregated_weights[k] = res
         
         return aggregated_weights
 

@@ -16,13 +16,14 @@ from ClassifierModel import ClassifierModel
 from sklearn.model_selection import StratifiedKFold
 
 
-args = {"data_path":"../data/COVIDGR1.0-Segmentadas", 
+args = {"data_path":"../data/Revisadas-Clasificadas", 
         "csv_dir": "../partitions/",
         "csv_path" : None,
-        "output_path": "../weights",
+        "train_CIT": 1,
+        "weights_path": "../weights/100r_5e_weigagg/",
         "input_path": "",
         "batch_size": 8,
-        "federated_rounds":10,
+        "federated_rounds":200,
         "epochs_per_FL_round": 5,
         "folds" : 1,
         "lambda_values" : [0.05],
@@ -118,6 +119,15 @@ def imprimir_resultados(metrics_cit, metrics_sdnet, file):
     
     f.close()
 
+def imprimir_hist(hist):
+
+    for i in range(len(hist[0])):
+        print("Metric " + str(n))
+        for n in range(len(hist)):
+            print(hist[n][i])
+
+
+
 def run_federated_experiment():
 
     imprimir_configuracion()
@@ -127,9 +137,30 @@ def run_federated_experiment():
     federated_data.configure_data_access(UnprotectedAccess())
     print("[INFO] done")
 
-    aggregator = shfl.federated_aggregator.FedAvgAggregator()
+    #aggregator = shfl.federated_aggregator.FedAvgAggregator()
+    percentage = [float(783/933), float(97/933), float(32/933), float(21/933)]
+    aggregator = shfl.federated_aggregator.WeightedFedAvgAggregator(percentage=percentage)
     cit_federated_government = shfl.federated_government.FederatedGovernment(cit_builder, federated_data, aggregator)
-    cit_federated_government.run_rounds(args["federated_rounds"], test_data, test_label)
+    
+
+    if args["train_CIT"]==0:
+        torch.load_state_dict(cit_federated_government.global_model._G_dict['N'], args["weights_path"]+"CIT_G_N.pth")
+        torch.load_state_dict(cit_federated_government.global_model._G_dict['P'], args["weights_path"]+"CIT_G_P.pth")
+        torch.load_state_dict(cit_federated_government.global_model._classifier, args["weights_path"]+"CIT_C.pth")
+    else:
+
+        if args["train_CIT"]==2:
+            torch.load_state_dict(cit_federated_government.global_model._G_dict['N'], args["weights_path"]+"CIT_G_N.pth")
+            torch.load_state_dict(cit_federated_government.global_model._G_dict['P'], args["weights_path"]+"CIT_G_P.pth")
+            torch.load_state_dict(cit_federated_government.global_model._classifier, args["weights_path"]+"CIT_C.pth")
+        
+        hist = cit_federated_government.run_rounds(args["federated_rounds"], test_data, test_label)
+        imprimir_hist(hist)
+
+        torch.save(cit_federated_government.global_model._G_dict['N'].state_dict(), args["weights_path"]+"CIT_G_N.pth")
+        torch.save(cit_federated_government.global_model._G_dict['P'].state_dict(), args["weights_path"]+"CIT_G_P.pth")
+        torch.save(cit_federated_government.global_model._classifier.state_dict(), args["weights_path"]+"CIT_C.pth")
+
 
     metrics_cit = cit_federated_government.global_model.evaluate(test_data, test_label)
     print("CIT Classifier Results:")
@@ -310,28 +341,8 @@ for csv_file in csv_files:
     #run_sdnet_crossval()
     print("-------------------------------------------------------------------------------------")
 """
-"""
 #csv_files = [ "partition_iid_"+str(n)+"nodes_"+str(id)+".csv" for n in [6] for id in [1,2,3]]
-csv_files = ["partition_iid_3nodes_3.csv"]
-for csv_file in csv_files:
-    args["csv_path"] = args["csv_dir"] + csv_file
-    print("-------------------------------------------------------------------------------------")
-    print("FILE: " + csv_file)
-    run_federated_experiment()
-    print("-------------------------------------------------------------------------------------")
-"""
-"""
-csv_files = ["partition_iid_3nodes_3.csv"] + [ "partition_iid_"+str(n)+"nodes_"+str(id)+".csv" for n in [3, 6] for id in [1,2,3]]
-for csv_file in csv_files:
-    args["csv_path"] = args["csv_dir"] + csv_file
-    print("-------------------------------------------------------------------------------------")
-    print("FILE: " + csv_file)
-    run_federated_experiment()
-    print("-------------------------------------------------------------------------------------")
-"""
-
-#csv_files = [ "partition_iid_"+str(n)+"nodes_"+str(id)+".csv" for n in [6] for id in [2,3]]
-csv_files = ["partition_iid_6nodes_1.csv"]
+csv_files = ["partition_noniid_hospital_1.csv"]
 for csv_file in csv_files:
     args["csv_path"] = args["csv_dir"] + csv_file
     print("-------------------------------------------------------------------------------------")
