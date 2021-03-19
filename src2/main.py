@@ -19,12 +19,12 @@ from sklearn.model_selection import StratifiedKFold
 args = {"data_path":"../data/Revisadas-Clasificadas", 
         "csv_dir": "../partitions/",
         "csv_path" : None,
-        "train_CIT": 1,
+        "train_CIT": 1, # 0: no train, 1: train from random weights, 2: train from loaded weights
         "weights_path": "../weights/100r_5e_weigagg/",
-        "input_path": "",
         "batch_size": 8,
         "federated_rounds":200,
-        "epochs_per_FL_round": 5,
+        "epochs_CIT": 5,
+        "epochs_SDNET": 5,
         "folds" : 1,
         "lambda_values" : [0.05],
         "num_nodes": 3,
@@ -53,10 +53,10 @@ dict_labels = { 'PTP' : np.argmax(lb2.transform(['PTP'])[0]) , 'PTN' : np.argmax
 print(dict_labels)
 
 def cit_builder():    
-    return CITModel(['N', 'P'], classifier_name = "resnet18", lambda_values = args["lambda_values"], folds = args["folds"], batch_size=args["batch_size"], epochs=args["epochs_per_FL_round"], device=device)
+    return CITModel(['N', 'P'], classifier_name = "resnet18", lambda_values = args["lambda_values"], folds = args["folds"], batch_size=args["batch_size"], epochs=args["epochs_CIT"], device=device)
 
 def classifier_builder(G_dict):
-    return ClassifierModel(G_dict, dict_labels, batch_size=args["batch_size"], epochs=args["epochs_per_FL_round"], finetune = args["finetune"])
+    return ClassifierModel(G_dict, dict_labels, batch_size=args["batch_size"], epochs=args["epochs_SDNET"], finetune = args["finetune"])
 
 def get_transformed_data(federated_data, cit_federated_government, test_data, test_label, lb1, lb2):
     t_federated_data = copy.deepcopy(federated_data)
@@ -74,7 +74,8 @@ def imprimir_configuracion():
     print("csv_path: " + args["csv_path"])
     print("batch_size: " + str(args["batch_size"]))
     print("federated_rounds: " + str(args["federated_rounds"]))
-    print("epochs_per_FL_round: " + str(args["epochs_per_FL_round"]))
+    print("epochs_CIT: " + str(args["epochs_CIT"]))
+    print("epochs_SDNET: " + str(args["epochs_SDNET"]))
     print("folds: " + str(args["folds"]))
     print("num_nodes: " + str(args["num_nodes"]))
     print("finetune: " + str(args["finetune"]))
@@ -94,7 +95,8 @@ def imprimir_resultados(metrics_cit, metrics_sdnet, file):
     f.write("csv_path: " + args["csv_path"] + "\n")
     f.write("batch_size: " + str(args["batch_size"])+ "\n")
     f.write("federated_rounds: " + str(args["federated_rounds"])+ "\n")
-    f.write("epochs_per_FL_round: " + str(args["epochs_per_FL_round"])+ "\n")
+    f.write("epochs_CIT: " + str(args["epochs_CIT"])+ "\n")
+    f.write("epochs_SDNET: " + str(args["epochs_SDNET"])+ "\n")
     f.write("folds: " + str(args["folds"])+ "n")
     f.write("num_nodes: " + str(args["num_nodes"])+ "\n")
     f.write("finetune: " + str(args["finetune"])+ "\n")
@@ -167,7 +169,7 @@ def run_federated_experiment():
     print("Loss: {}".format(metrics_cit[0]))
     print("Acc: {}".format(metrics_cit[1]))
     print(metrics_cit[2])
-
+    """
     t_federated_data = get_transformed_data(federated_data, cit_federated_government, test_data, test_label, lb1, lb2)
 
     aggregator = shfl.federated_aggregator.FedAvgAggregator()
@@ -183,9 +185,9 @@ def run_federated_experiment():
     print("No concuerda: {}".format(metrics_sdnet[2]))
     print(metrics_sdnet[3])
 
-    outfile = "../results/federated_{}r{}e_{}nodes.txt".format(args["federated_rounds"], args["epochs_per_FL_round"], args["num_nodes"])
+    outfile = "../results/federated_{}r{}e_{}nodes.txt".format(args["federated_rounds"], args["epochs_SDNET"], args["num_nodes"])
     imprimir_resultados(metrics_cit, metrics_sdnet, outfile)
-
+    """
     torch.cuda.empty_cache()
 
 
@@ -219,7 +221,7 @@ def run_centralized_experiment():
     print("No concuerda: {}".format(metrics_sdnet[2]))
     print(metrics_sdnet[3])
 
-    outfile = "../results/centralized_6.txt".format(args["federated_rounds"], args["epochs_per_FL_round"])
+    outfile = "../results/centralized_6.txt".format(args["federated_rounds"], args["epochs_SDNET"])
     imprimir_resultados(metrics_cit, metrics_sdnet, outfile)
 
     torch.cuda.empty_cache()

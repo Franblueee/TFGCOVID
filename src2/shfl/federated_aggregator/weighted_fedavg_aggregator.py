@@ -47,10 +47,8 @@ class WeightedFedAvgAggregator(FederatedAggregator):
     @dispatch(dict, np.ScalarType)
     def _ponderate_weights(self, params, weight):
         ponderated_weights = {}
-        for k in params[0].keys():
-            vec = [ p[k] for p in params ]
-            res = self._ponderate_weights(*vec, weight)
-            ponderated_weights[k] = res
+        for k in params.keys():
+            ponderated_weights[k] = self._ponderate_weights(params[k], weight)
         return ponderated_weights
 
     @dispatch(Variadic[np.ndarray, np.ScalarType])
