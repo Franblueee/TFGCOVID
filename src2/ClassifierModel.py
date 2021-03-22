@@ -64,16 +64,16 @@ class ClassifierModel(shfl.model.DeepLearningModel):
                                             validation_split=0.1
                                           )
         train_generator = train_datagen.flow(data, labels, batch_size=self._batch_size, subset='training', shuffle=True)
-        validation_generator = train_datagen.flow(data, labels, batch_size=self._batch_size, subset='validation', shuffle=False)
+        validation_generator = train_datagen.flow(data, labels, batch_size=1, subset='validation', shuffle=False)
 
 
         #early_stopping = tf.keras.callbacks.EarlyStopping(monitor = 'val_loss', patience = 10, verbose=1, restore_best_weights = True)
-        early_stopping = tf.keras.callbacks.EarlyStopping(monitor = 'val_categorical_accuracy', patience = 20, verbose=1, restore_best_weights = True)
+        early_stopping = tf.keras.callbacks.EarlyStopping(monitor = 'val_categorical_accuracy', patience = 10, verbose=1, restore_best_weights = True)
         self._model.fit(
             x=train_generator,
             steps_per_epoch= int(len(data)*0.9) // self._batch_size,
             validation_data = validation_generator,
-            validation_steps = int(len(data)*0.1) // self._batch_size,
+            validation_steps = int(len(data)*0.1),
             epochs=self._epochs, 
             callbacks = [early_stopping]
         )

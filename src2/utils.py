@@ -9,6 +9,32 @@ from shfl.private.federated_operation import FederatedData
 from shutil import copyfile
 from imutils import paths
 
+def get_transformed_data(federated_data, cit_federated_government, test_data, test_label, lb1, lb2):
+    t_federated_data = copy.deepcopy(federated_data)
+
+    for i in range(federated_data.num_nodes()):
+        data = federated_data[i].query()._data
+        labels = federated_data[i].query()._label
+        t_data, t_labels = cit_federated_government.global_model.transform_data(data, labels, lb1, lb2)
+        t_federated_data[i].query()._data = t_data
+        t_federated_data[i].query()._label = t_labels
+
+    return t_federated_data
+
+def get_percentage(federated_data):
+    w = []
+    total = 0
+
+    for i in range(federated_data.num_nodes()):
+        data = federated_data[i].query()._data
+        w.append(len(data))
+        total = total + len(data)
+    
+    for i in range(len(w)):
+        w[i] = float(w[i]/total)
+
+    return w
+
 def get_federated_data_csv(data_path, csv_path, label_binarizer, width=256, height=256):
     
     num_nodes = 0

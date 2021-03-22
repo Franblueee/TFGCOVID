@@ -7,14 +7,13 @@ import numpy as np
 import cv2
 import PIL
 
-
 from tqdm import tqdm
 
 from keras import backend as keras
 from keras.models import load_model
 from keras.preprocessing.image import load_img
 
-SEGMENTATION_MODEL = "src" + os.sep + "unet_lung_seg.hdf5"
+SEGMENTATION_MODEL = "../weights" + os.sep + "unet_lung_seg.hdf5"
 
 def dice_coef(y_true, y_pred):
     y_true_f = keras.flatten(y_true)
@@ -115,3 +114,7 @@ def crop(image_dir, save_dir):
             cropped_img = cropImage(img, segmentation_model, threshold=threshold)
             img_save_path = os.path.join(save_c_path, img_name)
             cv2.imwrite(img_save_path, cropped_img)
+
+image_dir = "../data/Revisadas-Clasificadas"
+save_dir = "../data/Revisadas-Clasificadas-Recortadas"
+crop(image_dir, save_dir)

@@ -71,14 +71,13 @@ class Generator(nn.Module):
         return block7
 
 class CITModel(TrainableModel):
-    def __init__(self, class_names, classifier_name = "resnet18", lambda_values = [0.00075], batch_size=1, epochs=1, folds = 1, device="cpu"):
+    def __init__(self, class_names, classifier_name = "resnet18", lambda_values = [0.05], batch_size=1, epochs=1, device="cpu"):
         
         self._class_names = class_names
         self._device = device
         self._lambda_values = lambda_values
         self._best_lambda = self._lambda_values[0]
         self._classifier_name = classifier_name
-        self._folds = folds
         self._batch_size = batch_size
         self._epochs = epochs
 
@@ -154,7 +153,6 @@ class CITModel(TrainableModel):
         
         #my_transform = transforms.Compose( [ transforms.RandomHorizontalFlip(), transforms.RandomAffine(5), transforms.RandomRotation(5) ] )
         #dataset = CustomTensorDataset(torch.from_numpy(data), torch.from_numpy(labels), transform = my_transform)
-
         #train_dataset, val_dataset = random_split(dataset, [train_size, val_size] )
 
         best_G_dict = copy.deepcopy(self._G_dict)
@@ -172,51 +170,50 @@ class CITModel(TrainableModel):
         best_loss = valid_loss
         """
 
+        train_size = int(0.9*len(data))
+        val_size = len(data) - train_size
+        train_dataset, val_dataset = random_split(dataset, [train_size, val_size])
+        train_loader = DataLoader(dataset=train_dataset, batch_size=self._batch_size, num_workers=4)
+        val_loader = DataLoader(dataset=val_dataset, batch_size=1, num_workers=4)
 
-        if (self._folds == 1):
+        valid_loss, y_true, y_pred, val_results = self.validate(val_loader, best_G_dict, best_classifier)
+        best_acc = accuracy_score(y_true, y_pred)
+        best_loss = valid_loss
 
-            train_size = int(0.9*len(data))
-            val_size = len(data) - train_size
-            train_dataset, val_dataset = random_split(dataset, [train_size, val_size] )
-            train_loader = DataLoader(dataset=train_dataset, batch_size = self._batch_size, num_workers = 4)
-            val_loader = DataLoader(dataset=val_dataset, batch_size=1, num_workers=4)
+        self._early_stopping = EarlyStopping(patience=5, verbose=True)
+        self._early_stopping._best_score = - best_loss
 
-            valid_loss, y_true, y_pred, val_results = self.validate(val_loader, best_G_dict, best_classifier)
-            best_acc = accuracy_score(y_true, y_pred)
-            best_loss = valid_loss
+        print("[INFO] Initial Valid Scores: ")
+        print("Valid Acc = {}".format(best_acc))
+        print("Valid Loss = {}".format(best_loss))
 
-            print("[INFO] Initial Valid Scores: ")
-            print("Valid Acc = {}".format(best_acc))
-            print("Valid Loss = {}".format(best_loss))
+        for lambda_class in self._lambda_values:
+            print("[INFO] LAMBDA: {}".format(lambda_class))
 
+            G_dict, classifier = self.run_epochs(self._epochs, class_weights, train_loader, val_loader, self._best_lambda)
+            valid_loss, y_true, y_pred, val_results = self.validate(val_loader, G_dict, classifier)
+            valid_acc = accuracy_score(y_true, y_pred)
 
-            for lambda_class in self._lambda_values:
-                print("[INFO] LAMBDA: {}".format(lambda_class))   
+            print("[INFO] Summary of training for LAMBDA = {} (best model values)".format(lambda_class))
+            print("Valid Acc = {}".format(valid_acc))
+            print("Valid Loss = {}".format(valid_loss))
 
-                G_dict, classifier = self.run_epochs(self._epochs, class_weights, train_loader, val_loader, self._best_lambda)
-                valid_loss, y_true, y_pred, val_results = self.validate(val_loader, G_dict, classifier)   
-                valid_acc = accuracy_score(y_true, y_pred)
-
-                print("[INFO] Summary of training for LAMBDA = {} (best model values)".format(lambda_class))
-                print("Valid Acc = {}".format(valid_acc))
-                print("Valid Loss = {}".format(valid_loss))
-                
-                if valid_acc >= best_acc:
-                    best_acc = valid_acc
-                    best_G_dict = copy.deepcopy(G_dict)
-                    best_classifier = copy.deepcopy(classifier)
-                    self._best_lambda = lambda_class
-                """
-                if valid_loss <= best_loss:
-                    best_loss = valid_loss
-                    best_G_dict = copy.deepcopy(G_dict)
-                    best_classifier = copy.deepcopy(classifier)
-                    self._best_lambda = lambda_class
-                """
-                
-                best_classifier = copy.deepcopy(classifier)
+            if valid_acc >= best_acc:
+                best_acc = valid_acc
                 best_G_dict = copy.deepcopy(G_dict)
-        
+                best_classifier = copy.deepcopy(classifier)
+                self._best_lambda = lambda_class
+            """
+            if valid_loss <= best_loss:
+                best_loss = valid_loss
+                best_G_dict = copy.deepcopy(G_dict)
+                best_classifier = copy.deepcopy(classifier)
+                self._best_lambda = lambda_class
+            """
+
+            best_classifier = copy.deepcopy(classifier)
+            best_G_dict = copy.deepcopy(G_dict)
+
         self._G_dict = best_G_dict
         self._classifier = best_classifier
         
@@ -233,7 +230,6 @@ class CITModel(TrainableModel):
         G_criterion_dict = self.create_criterion_dict()
 
         exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)
-        early_stopping = EarlyStopping(patience=10, verbose=True)
 
         valid_loss, y_true, y_pred, val_results = self.validate(val_loader, G_dict, classifier)
         best_loss = valid_loss
@@ -351,8 +347,8 @@ class CITModel(TrainableModel):
                 best_G_dict['loss'] = copy.deepcopy(G_dict)
                 best_classifier['loss'] = copy.deepcopy(classifier)
 
-            early_stopping(valid_loss)
-            if early_stopping.early_stop:
+            self._early_stopping(valid_loss)
+            if self._early_stopping.early_stop:
                 print("Early stopping, epoch " + str(epoch))
                 break
         
@@ -582,3 +578,13 @@ class CITModel(TrainableModel):
         new_labels = label_binarizer_2.transform(new_labels)
     
         return np.array(new_data), np.array(new_labels)
+    
+    def load(self, path):
+        self._G_dict['N'].load_state_dict(torch.load(path+"CIT_G_N.pth"))
+        self._G_dict['P'].load_state_dict(torch.load(path+"CIT_G_P.pth"))
+        self._classifier.load_state_dict(torch.load(path+"CIT_C.pth"))
+
+    def save(self, path):
+        torch.save(self._G_dict['N'].state_dict(), path+"CIT_G_N.pth")
+        torch.save(self._G_dict['P'].state_dict(), path+"CIT_G_P.pth")
+        torch.save(self._classifier.state_dict(), path+"CIT_C.pth")
