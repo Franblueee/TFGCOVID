@@ -19,6 +19,8 @@ def get_transformed_data(federated_data, cit_federated_government, test_data, te
         t_federated_data[i].query()._data = t_data
         t_federated_data[i].query()._label = t_labels
 
+    t_test_data, t_test_labels = cit_federated_government.global_model.transform_data(test_data, test_labels, lb1, lb2)
+
     return t_federated_data
 
 def get_percentage(federated_data):

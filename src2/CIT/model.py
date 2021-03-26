@@ -231,9 +231,12 @@ class CITModel(TrainableModel):
 
         exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)
 
-        valid_loss, y_true, y_pred, val_results = self.validate(val_loader, G_dict, classifier)
-        best_loss = valid_loss
-        best_acc = accuracy_score(y_true, y_pred)
+        #valid_loss, y_true, y_pred, val_results = self.validate(val_loader, G_dict, classifier)
+        #best_loss = valid_loss
+        #best_acc = accuracy_score(y_true, y_pred)
+
+        best_loss = np.Inf
+        best_acc = 0.0
         
         for epoch in range(1, num_epochs+1):
             train_bar = tqdm(train_loader)
@@ -342,10 +345,12 @@ class CITModel(TrainableModel):
                 best_G_dict['acc'] = copy.deepcopy(G_dict)
                 best_classifier['acc'] = copy.deepcopy(classifier)
 
+            """
             if valid_loss <= best_loss:
                 best_loss = valid_loss
                 best_G_dict['loss'] = copy.deepcopy(G_dict)
                 best_classifier['loss'] = copy.deepcopy(classifier)
+            """
 
             self._early_stopping(valid_loss)
             if self._early_stopping.early_stop:

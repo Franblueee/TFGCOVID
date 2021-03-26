@@ -18,12 +18,13 @@ from sklearn.model_selection import StratifiedKFold
 args = {"data_path":"../data/Revisadas-Clasificadas-Recortadas", 
         "csv_dir": "../partitions/",
         "csv_path" : None,
-        "train_CIT": 0, # 0: no train, 1: train from random weights, 2: train from loaded weights
-        "weights_path": "../weights/centralized/",
+        "train_CIT": 1, # 0: no train, 1: train from random weights, 2: train from loaded weights
+        "weights_path": None,
         "batch_size": 8,
-        "federated_rounds":100,
-        "epochs_CIT": 20,
-        "epochs_SDNET": 30,
+        "rounds_CIT":8,
+        "rounds_SDNET":10, 
+        "epochs_CIT": 5,
+        "epochs_SDNET": 10,
         "lambda_values" : [0.05],
         "num_nodes": None,
         "finetune": True,
@@ -57,10 +58,10 @@ def classifier_builder(G_dict):
     return ClassifierModel(G_dict, dict_labels, batch_size=args["batch_size"], epochs=args["epochs_SDNET"], finetune = args["finetune"])
 
 def imprimir_configuracion():
-    print(args)
     print("csv_path: " + args["csv_path"])
     print("batch_size: " + str(args["batch_size"]))
-    print("federated_rounds: " + str(args["federated_rounds"]))
+    print("rounds_CIT: " + str(args["rounds_CIT"]))
+    print("rounds_SDNET: " + str(args["rounds_SDNET"]))
     print("epochs_CIT: " + str(args["epochs_CIT"]))
     print("epochs_SDNET: " + str(args["epochs_SDNET"]))
     print("num_nodes: " + str(args["num_nodes"]))
@@ -80,7 +81,8 @@ def imprimir_resultados(metrics_cit, metrics_sdnet, file, hist_CIT=None, hist_SD
     f.write("-------------------------------------------------------------------------------------\n")
     f.write("csv_path: " + args["csv_path"] + "\n")
     f.write("batch_size: " + str(args["batch_size"])+ "\n")
-    f.write("federated_rounds: " + str(args["federated_rounds"])+ "\n")
+    f.write("rounds_CIT: " + str(args["rounds_CIT"])+ "\n")
+    f.write("rounds_SDNET: " + str(args["rounds_SDNET"])+ "\n")
     f.write("epochs_CIT: " + str(args["epochs_CIT"])+ "\n")
     f.write("epochs_SDNET: " + str(args["epochs_SDNET"])+ "\n")
     f.write("num_nodes: " + str(args["num_nodes"])+ "\n")
@@ -142,9 +144,9 @@ def run_federated_experiment():
     federated_data.configure_data_access(UnprotectedAccess())
     print("[INFO] done")
 
-    aggregator = shfl.federated_aggregator.FedAvgAggregator()
-    #percentage = get_percentage(federated_data)
-    #aggregator = shfl.federated_aggregator.WeightedFedAvgAggregator(percentage=percentage)
+    #aggregator = shfl.federated_aggregator.FedAvgAggregator()
+    percentage = get_percentage(federated_data)
+    aggregator = shfl.federated_aggregator.WeightedFedAvgAggregator(percentage=percentage)
     cit_federated_government = shfl.federated_government.FederatedGovernment(cit_builder, federated_data, aggregator)
     
 
@@ -155,7 +157,7 @@ def run_federated_experiment():
         if args["train_CIT"]==2 and args["weights_path"]:
             cit_federated_government.global_model.load(args["weights_path"])
         
-        hist_CIT = cit_federated_government.run_rounds(args["federated_rounds"], test_data, test_label)
+        hist_CIT = cit_federated_government.run_rounds(args["rounds_CIT"], test_data, test_label)
         imprimir_hist(hist_CIT)
 
         if args["weights_path"]:
@@ -167,10 +169,10 @@ def run_federated_experiment():
     print("Acc: {}".format(metrics_cit[1]))
     print(metrics_cit[2])
     
-    t_federated_data = get_transformed_data(federated_data, cit_federated_government, test_data, test_label, lb1, lb2)
+    t_federated_data, t_test_data, t_test_label = get_transformed_data(federated_data, cit_federated_government, test_data, test_label, lb1, lb2)
     G_dict = cit_federated_government.global_model._G_dict
     classifier_federated_government = shfl.federated_government.FederatedGovernment(lambda : classifier_builder(G_dict), t_federated_data, aggregator)
-    hist_SDNET = classifier_federated_government.run_rounds(args["federated_rounds"], test_data, test_label)
+    hist_SDNET = classifier_federated_government.run_rounds(args["rounds_SDNET"], test_data, test_label)
 
     metrics_sdnet = classifier_federated_government.global_model.evaluate(test_data, test_label)
     print("SDNET Classifier Results:")
@@ -178,6 +180,7 @@ def run_federated_experiment():
     print("Acc_4: {}".format(metrics_sdnet[1]))
     print("No concuerda: {}".format(metrics_sdnet[2]))
     print(metrics_sdnet[3])
+    
 
     out_name = args["csv_path"].split(os.sep)[-1]
     out_name = out_name.split('.')[0]
@@ -219,7 +222,7 @@ def run_centralized_experiment():
     print(metrics_sdnet[3])
 
     
-    outfile = "../results/centralized.txt".format(args["federated_rounds"], args["epochs_SDNET"])
+    outfile = "../results/centralized.txt"
     imprimir_resultados(metrics_cit, metrics_sdnet, outfile)
 
     torch.cuda.empty_cache()
@@ -324,7 +327,9 @@ for csv_file in csv_files:
 """
 
 #csv_files = [ "partition_iid_"+str(n)+"nodes_"+str(id)+".csv" for n in [6] for id in [1,2,3]]
-csv_files = ["partition_noniid_hospital_2.csv"]
+#csv_files = ["partition_noniid_hospital_1.csv", "partition_noniid_hospital_2.csv", "partition_noniid_hospital_3.csv"]
+csv_files = ["partition_noniid_hospital_2.csv", "partition_noniid_hospital_3.csv"]
+#csv_files = ["partition_noniid_hospital_1.csv"]
 for csv_file in csv_files:
     args["csv_path"] = args["csv_dir"] + csv_file
     print("-------------------------------------------------------------------------------------")

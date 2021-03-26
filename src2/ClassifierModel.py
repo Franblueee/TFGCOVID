@@ -93,8 +93,6 @@ class ClassifierModel(shfl.model.DeepLearningModel):
             tp = self._G_dict['P'](x)
             tp = tp[0].cpu().detach().numpy()
             tp = np.moveaxis(tp, 0, -1)
-            tp = cv2.resize(tp, dsize=(224, 224))
-
             tp= cv2.normalize(tp, None, alpha = 0, beta = 255, norm_type = cv2.NORM_MINMAX, dtype = cv2.CV_32F)
             tp = cv2.resize(tp, dsize=(224, 224))
             tp = tp.astype(np.uint8)
@@ -102,8 +100,6 @@ class ClassifierModel(shfl.model.DeepLearningModel):
             tn = self._G_dict['N'](x)
             tn = tn[0].cpu().detach().numpy()
             tn = np.moveaxis(tn, 0, -1)
-            tn = cv2.resize(tn, dsize=(224, 224))
-
             tn = cv2.normalize(tn, None, alpha = 0, beta = 255, norm_type = cv2.NORM_MINMAX, dtype = cv2.CV_32F)
             tn = cv2.resize(tn, dsize=(224, 224))
             tn = tn.astype(np.uint8)
