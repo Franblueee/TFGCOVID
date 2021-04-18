@@ -71,12 +71,11 @@ class Generator(nn.Module):
         return block7
 
 class CITModel(TrainableModel):
-    def __init__(self, class_names, classifier_name = "resnet18", lambda_values = [0.05], batch_size=1, epochs=1, device="cpu"):
+    def __init__(self, class_names, classifier_name = "resnet18", lambda_value = 0.05, batch_size=1, epochs=1, device="cpu"):
         
         self._class_names = class_names
         self._device = device
-        self._lambda_values = lambda_values
-        self._best_lambda = self._lambda_values[0]
+        self._lambda_value = lambda_value
         self._classifier_name = classifier_name
         self._batch_size = batch_size
         self._epochs = epochs
@@ -157,18 +156,6 @@ class CITModel(TrainableModel):
 
         best_G_dict = copy.deepcopy(self._G_dict)
         best_classifier = copy.deepcopy(self._classifier)
-        
-        """
-        train_size = int(0.9*len(data))
-        val_size = len(data) - train_size
-        train_dataset, val_dataset = random_split(dataset, [train_size, val_size] )
-        train_loader = DataLoader(dataset=train_dataset, batch_size = self._batch_size, num_workers = 4)
-        val_loader = DataLoader(dataset=val_dataset, batch_size=1, num_workers=4)
-
-        valid_loss, y_true, y_pred, val_results = self.validate(val_loader, best_G_dict, best_classifier, class_weights)
-        best_acc = accuracy_score(y_true, y_pred)
-        best_loss = valid_loss
-        """
 
         train_size = int(0.9*len(data))
         val_size = len(data) - train_size
@@ -180,65 +167,24 @@ class CITModel(TrainableModel):
         best_acc = accuracy_score(y_true, y_pred)
         best_loss = valid_loss
 
-        self._early_stopping = EarlyStopping(patience=5, verbose=True)
-        self._early_stopping._best_score = - best_loss
 
         print("[INFO] Initial Valid Scores: ")
         print("Valid Acc = {}".format(best_acc))
         print("Valid Loss = {}".format(best_loss))
 
-        for lambda_class in self._lambda_values:
-            print("[INFO] LAMBDA: {}".format(lambda_class))
+        print("[INFO] LAMBDA: {}".format(self._lambda_value))
 
-            G_dict, classifier = self.run_epochs(self._epochs, class_weights, train_loader, val_loader, self._best_lambda)
-            valid_loss, y_true, y_pred, val_results = self.validate(val_loader, G_dict, classifier)
-            valid_acc = accuracy_score(y_true, y_pred)
+        early_stopping = EarlyStopping(patience=5, verbose=True)
+        early_stopping._best_score = - best_loss
 
-            print("[INFO] Summary of training for LAMBDA = {} (best model values)".format(lambda_class))
-            print("Valid Acc = {}".format(valid_acc))
-            print("Valid Loss = {}".format(valid_loss))
-
-            if valid_acc >= best_acc:
-                best_acc = valid_acc
-                best_G_dict = copy.deepcopy(G_dict)
-                best_classifier = copy.deepcopy(classifier)
-                self._best_lambda = lambda_class
-            """
-            if valid_loss <= best_loss:
-                best_loss = valid_loss
-                best_G_dict = copy.deepcopy(G_dict)
-                best_classifier = copy.deepcopy(classifier)
-                self._best_lambda = lambda_class
-            """
-
-            best_classifier = copy.deepcopy(classifier)
-            best_G_dict = copy.deepcopy(G_dict)
-
-        self._G_dict = best_G_dict
-        self._classifier = best_classifier
-        
-    
-    def run_epochs(self, num_epochs, class_weights, train_loader, val_loader, lambda_class):
-
-        G_dict = copy.deepcopy(self._G_dict)
-        best_G_dict = {'loss' : copy.deepcopy(self._G_dict), 'acc' : copy.deepcopy(self._G_dict) }
-        classifier = copy.deepcopy(self._classifier)
-        best_classifier = {'loss' : copy.deepcopy(self._classifier), 'acc' : copy.deepcopy(self._classifier) }
-        optimizer = optim.Adam(classifier.parameters(), lr=0.001, betas=(0.9, 0.999))
-        optimizers_dict = self.create_optimizers_dict(G_dict)
+        optimizer = optim.Adam(self._classifier.parameters(), lr=0.001, betas=(0.9, 0.999))
+        optimizers_dict = self.create_optimizers_dict(self._G_dict)
         criterion_classifier = nn.CrossEntropyLoss(weight=torch.from_numpy(class_weights).float().to(self._device))
         G_criterion_dict = self.create_criterion_dict()
-
         exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)
 
-        #valid_loss, y_true, y_pred, val_results = self.validate(val_loader, G_dict, classifier)
-        #best_loss = valid_loss
-        #best_acc = accuracy_score(y_true, y_pred)
+        for epoch in range(1, self._epochs+1):
 
-        best_loss = np.Inf
-        best_acc = 0.0
-        
-        for epoch in range(1, num_epochs+1):
             train_bar = tqdm(train_loader)
             running_results = {'batch_sizes': 0, 'd_loss': 0, 'd_corrects': 0, 'd_score': 0, 'g_score': 0}
 
@@ -246,8 +192,8 @@ class CITModel(TrainableModel):
                 running_results['g_loss_'+class_name] = 0
                     
             for class_name in self._class_names:
-                G_dict[class_name].train()
-            classifier.train()
+                self._G_dict[class_name].train()
+            self._classifier.train()
 
             exp_lr_scheduler.step()
 
@@ -270,7 +216,7 @@ class CITModel(TrainableModel):
                 for idx, ind_label in enumerate(label):
                     for class_name in self._class_names:
                         #print(z[idx].shape)
-                        tr_image = G_dict[class_name](z[idx].unsqueeze(0))[0]
+                        tr_image = self._G_dict[class_name](z[idx].unsqueeze(0))[0]
                         transformed_imgs.append(tr_image)
                         unfold_labels.append(ind_label.item())
 
@@ -278,7 +224,7 @@ class CITModel(TrainableModel):
                 unfold_labels = torch.LongTensor(unfold_labels).to(self._device)
 
                 # Predict transformed images
-                classifier_outputs = classifier(transformed_imgs)
+                classifier_outputs = self._classifier(transformed_imgs)
                 classifier_outputs = classifier_outputs.to(self._device)
                 loss_classifier = criterion_classifier(classifier_outputs, unfold_labels)
 
@@ -304,8 +250,8 @@ class CITModel(TrainableModel):
 
                 # Backprop one time per generator
                 for idx, class_name in enumerate(self._class_names):
-                    G_dict[class_name].zero_grad()
-                    g_loss = G_criterion_dict[class_name](transformed_imgs[idx::len(self._class_names)], input_img, ce_toGenerator[class_name], float(lambda_class))
+                    self._G_dict[class_name].zero_grad()
+                    g_loss = G_criterion_dict[class_name](transformed_imgs[idx::len(self._class_names)], input_img, ce_toGenerator[class_name], float(self._lambda_value))
                     if idx < len(self._class_names)-1:
                         g_loss.backward(retain_graph=True)
                     else:
@@ -316,12 +262,12 @@ class CITModel(TrainableModel):
                 transformed_imgs = []
                 for idx, ind_label in enumerate(label):
                     for class_name in self._class_names:
-                        tr_image = G_dict[class_name](z[idx].unsqueeze(0))[0]
+                        tr_image = self._G_dict[class_name](z[idx].unsqueeze(0))[0]
                         transformed_imgs.append(tr_image)
                 transformed_imgs = torch.stack(transformed_imgs)
                 for idx, class_name in enumerate(self._class_names):
                     g_loss = G_criterion_dict[class_name](transformed_imgs[idx::len(self._class_names)], input_img,
-                                                            ce_toGenerator[class_name], float(lambda_class))
+                                                            ce_toGenerator[class_name], float(self._lambda_value))
                     running_results['g_loss_'+class_name] += g_loss.item() * batch_size
 
                 running_results['d_loss'] += loss_classifier.item() * batch_size
@@ -333,8 +279,8 @@ class CITModel(TrainableModel):
                     running_results['d_corrects'] / (len(self._class_names)*running_results['batch_sizes']),
                     running_results['g_loss_'+self._class_names[0]] / (len(self._class_names)*running_results['batch_sizes']),
                     running_results['g_loss_'+self._class_names[1]] / (len(self._class_names)*running_results['batch_sizes'])))
-                
-            valid_loss, y_true, y_pred, val_results = self.validate(val_loader, G_dict, classifier)
+
+            valid_loss, y_true, y_pred, val_results = self.validate(val_loader, self._G_dict, self._classifier)
                 
             curr_acc = accuracy_score(y_true, y_pred)
             print("\nValid Acc = {}".format(curr_acc))
@@ -342,23 +288,29 @@ class CITModel(TrainableModel):
             
             if curr_acc >= best_acc:
                 best_acc = curr_acc
-                best_G_dict['acc'] = copy.deepcopy(G_dict)
-                best_classifier['acc'] = copy.deepcopy(classifier)
-
+                best_loss = valid_loss
+                best_G_dict = copy.deepcopy(self._G_dict)
+                best_classifier = copy.deepcopy(self._classifier)
+            
             """
             if valid_loss <= best_loss:
+                best_acc = curr_acc
                 best_loss = valid_loss
-                best_G_dict['loss'] = copy.deepcopy(G_dict)
-                best_classifier['loss'] = copy.deepcopy(classifier)
+                best_G_dict = copy.deepcopy(G_dict)
+                best_classifier = copy.deepcopy(classifier)
             """
-
-            self._early_stopping(valid_loss)
-            if self._early_stopping.early_stop:
+            
+            early_stopping(valid_loss)
+            if early_stopping.early_stop:
                 print("Early stopping, epoch " + str(epoch))
                 break
-        
-        # return G_dict, classifier
-        return best_G_dict['acc'], best_classifier['acc']
+
+        print("[INFO] Summary of training for LAMBDA = {} (best model values)".format(self._lambda_value))
+        print("Valid Acc = {}".format(best_acc))
+        print("Valid Loss = {}".format(best_loss))
+
+        self._G_dict = copy.deepcopy(best_G_dict)
+        self._classifier = copy.deepcopy(best_classifier)
 
     def validate(self, val_loader, G_dict, classifier, show=True):
         
@@ -567,9 +519,12 @@ class CITModel(TrainableModel):
         new_data = []
         for i in range(len(data)):
             sample = data[i]
+            if sample.shape[0] != 256 or sample.shape[1] != 256:
+                sample = cv2.resize(sample, (256, 256))
             label = label_binarizer_1.inverse_transform(labels[i])[0]
             x = transforms.ToTensor()(sample).float().unsqueeze(0).to(self._device)
-            for class_name in self._class_names:
+            for i in range(len(self._class_names)):
+                class_name = self._class_names[i]
                 y = self._G_dict[class_name](x)
                 y = y[0].cpu().detach().numpy()
                 y = np.moveaxis(y, 0, -1)

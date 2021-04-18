@@ -79,56 +79,30 @@ class ClassifierModel(shfl.model.DeepLearningModel):
         )
     
     def predict(self, data):
+        
+        #probs = self._model.predict(data, batch_size=self._batch_size)
 
         preds = []
         preds_4 = []
         no_concuerda = 0
-
-        for image in data:
-
-            if image.shape[0] != 256 or image.shape[1] != 256:
-                image = cv2.resize(image, (256, 256))
+        for i in range(int(len(data)/2)):
             
-            x = ToTensor()(image).float().unsqueeze(0).to(self._device)
-            tp = self._G_dict['P'](x)
-            tp = tp[0].cpu().detach().numpy()
-            tp = np.moveaxis(tp, 0, -1)
-            tp= cv2.normalize(tp, None, alpha = 0, beta = 255, norm_type = cv2.NORM_MINMAX, dtype = cv2.CV_32F)
-            tp = cv2.resize(tp, dsize=(224, 224))
-            tp = tp.astype(np.uint8)
+            tn = data[2*i]
+            tp = data[2*i+1]
 
-            tn = self._G_dict['N'](x)
-            tn = tn[0].cpu().detach().numpy()
-            tn = np.moveaxis(tn, 0, -1)
-            tn = cv2.normalize(tn, None, alpha = 0, beta = 255, norm_type = cv2.NORM_MINMAX, dtype = cv2.CV_32F)
-            tn = cv2.resize(tn, dsize=(224, 224))
-            tn = tn.astype(np.uint8)
-
-            tp = np.expand_dims(tp, axis = 0)
             tn = np.expand_dims(tn, axis = 0)
+            tp = np.expand_dims(tp, axis = 0)
             tp = preprocess_input(tp)
             tn = preprocess_input(tn)
 
-            prob_tp = self._model.predict(tp)
-            prob_tn = self._model.predict(tn)
-            
+            prob_tn = self._model.predict(tn)[0]
+            prob_tp = self._model.predict(tp)[0]
+
             pred_tp = np.argmax(prob_tp)
             pred_tn = np.argmax(prob_tn)
 
-            """
-            max_tp = np.argmax(prob_tp)
-            pred_tp = [0 for i in range(4)]
-            pred_tp[max_tp] = 1
-            pred_tp = np.array(pred_tp)
-
-            max_tn = np.argmax(prob_tn)
-            pred_tn = [0 for i in range(4)]
-            pred_tn[max_tn] = 1
-            pred_tn = np.array(pred_tn)
-            """
-
-            preds_4.append(pred_tp)
             preds_4.append(pred_tn)
+            preds_4.append(pred_tp)
 
             if pred_tp == self._dict_labels['NTP'] and pred_tn == self._dict_labels['NTN']:
                 pred = self._dict_labels['N']
@@ -138,8 +112,8 @@ class ClassifierModel(shfl.model.DeepLearningModel):
                 no_concuerda = no_concuerda + 1
                 # prob_p = prob_tp[0][dict['PTP']] + prob_tp[0][dict['PTN']] + prob_tn[0][dict['PTP']] + prob_tn[0][dict['PTN']]
                 # prob_n = prob_tp[0][dict['NTP']] + prob_tp[0][dict['NTN']] + prob_tn[0][dict['NTP']] + prob_tn[0][dict['NTN']]
-                prob_p = max(prob_tp[0][self._dict_labels['PTP']], prob_tp[0][self._dict_labels['PTN']], prob_tn[0][self._dict_labels['PTP']], prob_tn[0][self._dict_labels['PTN']])
-                prob_n = max(prob_tp[0][self._dict_labels['NTP']], prob_tp[0][self._dict_labels['NTN']], prob_tn[0][self._dict_labels['NTP']], prob_tn[0][self._dict_labels['NTN']])
+                prob_p = max(prob_tp[self._dict_labels['PTP']], prob_tp[self._dict_labels['PTN']], prob_tn[self._dict_labels['PTP']], prob_tn[self._dict_labels['PTN']])
+                prob_n = max(prob_tp[self._dict_labels['NTP']], prob_tp[self._dict_labels['NTN']], prob_tn[self._dict_labels['NTP']], prob_tn[self._dict_labels['NTN']])
                 if prob_p >= prob_n:
                     pred = self._dict_labels['P']
                 else:
@@ -150,131 +124,31 @@ class ClassifierModel(shfl.model.DeepLearningModel):
         preds = np.array(preds)
         preds_4 = np.array(preds_4)
 
-        return preds, preds_4, no_concuerda
+        return preds, preds_4, no_concuerda        
 
     def evaluate(self, data, labels):
         preds, preds_4, no_concuerda, = self.predict(data)
 
-        new_labels = [ l[0] for l in labels ]
+        labels_4 = np.array([np.argmax(l) for l in labels])
+        labels_2 = []
 
-        new_labels = np.array(new_labels)
-
-        labels_4 = []
-
-        for i in range(len(labels)):
-            if labels[i][0] == self._dict_labels['P']:
+        for i in range(int(len(labels)/2)):
+            lab = np.argmax(labels[2*i])
+            if lab == self._dict_labels['PTP'] or lab == self._dict_labels['PTN']:
                 etiq = 'P'
             else:
                 etiq = 'N'
             
-            etiq_tp = etiq + "TP"
-            etiq_tn = etiq + "TN"
-            labels_4.append(self._dict_labels[etiq_tp])
-            labels_4.append(self._dict_labels[etiq_tn])
-
-        labels_4 = np.array(labels_4)
-
+            labels_2.append(self._dict_labels[etiq])
+        
+        labels_2 = np.array(labels_2)
+        
         acc_4 = sum(labels_4 == preds_4)/len(labels_4)
 
-        acc = sum(new_labels == preds)/len(labels)
+        acc = sum(labels_2 == preds)/len(labels_2)
 
-        cr = classification_report(new_labels, preds, digits = 5, output_dict = True)
+        cr = classification_report(labels_2, preds, digits = 5, output_dict = True)
 
         metrics = [acc, acc_4, no_concuerda, cr]
 
         return metrics
-
-    def get_classification_report(self, test_files, dict_labels, G_dict, save_model_file=None):
-        true_labels = []
-        preds = []
-        no_concuerda = 0
-        preds_4 = []
-        true_labels_4 = []
-        tabla_preds = np.empty((len(test_files), 3), dtype = '<U50')
-        
-        for i in range(len(test_files)):
-            image_path = test_files[i]
-            name = image_path.split(os.path.sep)[-1].split('.')[0]
-            label = image_path.split(os.path.sep)[-2]
-            
-            true_labels.append(label)
-            true_labels_4.append(dict_labels[label + "TP"])
-            true_labels_4.append(dict_labels[label + "TN"])
-            tabla_preds[i,0] = name
-            
-            image = cv2.imread(image_path)
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            image = cv2.resize(image, (256, 256))
-            
-            x = ToTensor()(image).float().unsqueeze(0).to(self._device)
-            tp = G_dict['P'](x)
-            tp = tp[0].cpu().detach().numpy()
-            tp = np.moveaxis(tp, 0, -1)
-            tp = cv2.resize(tp, dsize=(224, 224))
-
-            tn = G_dict['N'](x)
-            tn = tn[0].cpu().detach().numpy()
-            tn = np.moveaxis(tn, 0, -1)
-            tn = cv2.resize(tn, dsize=(224, 224))
-
-            tp = np.expand_dims(tp, axis = 0)
-            tn = np.expand_dims(tn, axis = 0)
-            tp = preprocess_input(tp)
-            tn = preprocess_input(tn)
-
-            prob_tp = self._model.predict(tp)
-            prob_tn = self._model.predict(tn)
-            
-            pred_tp = np.argmax(prob_tp)
-            pred_tn = np.argmax(prob_tn)
-            preds_4.append(pred_tp)
-            preds_4.append(pred_tn)
-            
-            #print(name)
-            #print('prediccion tp: ' + str(pred_tp))
-            #print('prediccion tn: ' + str(pred_tn))
-
-            if pred_tp == dict_labels['NTP'] and pred_tn == dict_labels['NTN']:
-                pred = 'N'
-            elif pred_tp == dict_labels['PTP'] and pred_tn == dict_labels['PTN']:
-                pred = 'P'
-            else:
-                no_concuerda = no_concuerda + 1
-                # prob_p = prob_tp[0][dict['PTP']] + prob_tp[0][dict['PTN']] + prob_tn[0][dict['PTP']] + prob_tn[0][dict['PTN']]
-                # prob_n = prob_tp[0][dict['NTP']] + prob_tp[0][dict['NTN']] + prob_tn[0][dict['NTP']] + prob_tn[0][dict['NTN']]
-                prob_p = max(prob_tp[0][dict_labels['PTP']], prob_tp[0][dict_labels['PTN']], prob_tn[0][dict_labels['PTP']], prob_tn[0][dict_labels['PTN']])
-                prob_n = max(prob_tp[0][dict_labels['NTP']], prob_tp[0][dict_labels['NTN']], prob_tn[0][dict_labels['NTP']], prob_tn[0][dict_labels['NTN']])
-                if prob_p >= prob_n:
-                    pred = 'P'
-                else:
-                    pred = 'N'
-
-            preds.append(pred)
-
-        true_labels = np.array(true_labels)
-        preds = np.array(preds)
-        true_labels_4 = np.array(true_labels_4)
-        preds_4 = np.array(preds_4)
-
-        print("preds")
-        print(preds)
-
-        print("preds_4")
-        print(preds_4)
-
-        tabla_preds[:,1] = true_labels
-        tabla_preds[:,2] = preds
-        #np.savetxt(save_preds_file, tabla_preds, fmt = '%1s', delimiter = ',')
-
-        # Calculate accuracy
-        acc_4 = sum(true_labels_4 == preds_4)/len(true_labels_4)
-        print('Accuracy 4 clases: ' + str(acc_4))
-        print('Numero de veces no concuerda: ' + str(no_concuerda))
-        acc = sum(true_labels == preds)/len(true_labels)
-        results = classification_report(true_labels, preds, digits = 5)
-
-        #if results['N']['recall'] >= 0.73 and results['P']['recall'] >= 0.73:
-        #    self._model.save(save_model_file)
-
-        print(results)
-        print(acc)
