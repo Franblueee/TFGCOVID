@@ -1,12 +1,10 @@
 import json
 import shfl
 import numpy as np
-import torch
-import tensorflow as tf
 
 from utils import get_federated_data_csv, get_transformed_data, get_percentage, imprimir_resultados
-from ClassifierModel import ClassifierModel
-from CIT.model import CITModel
+from SDNET.classifier import ClassifierModel
+from SDNET.CIT.model import CITModel
 from sklearn.preprocessing import LabelBinarizer
 
 config_path = "./config.json"
