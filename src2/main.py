@@ -23,7 +23,7 @@ args = {"data_path":"../data/Revisadas-Clasificadas-Recortadas",
         "train_CIT": 1, # 0: no train, 1: train from random weights, 2: train from loaded weights
         "batch_size": 8,
         "aggregator": 'wfedavg',
-        "rounds_CIT":40,
+        "rounds_CIT":30,
         "rounds_SDNET":50, 
         "epochs_CIT": 10,
         "epochs_SDNET": 10,
@@ -326,7 +326,7 @@ for csv_file in csv_files:
 #csv_files = ["partition_noniid_puntosrale_1.csv", "partition_noniid_puntosrale_2.csv", "partition_noniid_puntosrale_3.csv"]
 #csv_files = ["partition_noniid_demograf_1.csv", "partition_noniid_demograf_2.csv", "partition_noniid_demograf_3.csv"]
 
-csv_files = ["partition_noniid_puntosrale_3.csv"]
+csv_files = ["partition_iid_3nodes_1.csv", "partition_iid_6nodes_1.csv", "partition_iid_9nodes_1.csv"]
 
 
 for csv_file in csv_files:

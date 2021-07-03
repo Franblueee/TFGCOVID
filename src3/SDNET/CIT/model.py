@@ -2,17 +2,17 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
-import torch.nn.functional as F
 import copy
 import cv2
+import shfl
 
 from torchvision import models, transforms
 from torch.optim import lr_scheduler
 from torch.utils.data import DataLoader, random_split
 from torch.autograd import Variable
 
-from CIT.loss import GeneratorLoss
-from CIT.pytorchtools import EarlyStopping, CustomTensorDataset
+from SDNET.CIT.loss import GeneratorLoss
+from SDNET.CIT.pytorchtools import EarlyStopping, CustomTensorDataset
 
 from tqdm import tqdm
 
@@ -63,8 +63,8 @@ class Generator(nn.Module):
 
         return block7
 
-class CITModel():
-    def __init__(self, class_names, classifier_name = "resnet18", lambda_value = 0.05, batch_size=1, epochs=1, device="cpu"):
+class CITModel(shfl.model.TrainableModel):
+    def __init__(self, class_names, classifier_name, lambda_value, batch_size, epochs, device):
         
         self._class_names = class_names
         self._device = device
@@ -514,7 +514,7 @@ class CITModel():
             sample = data[i]
             if sample.shape[0] != 256 or sample.shape[1] != 256:
                 sample = cv2.resize(sample, (256, 256))
-            if labels!=None:
+            if not (labels is None):
                 label = label_binarizer_1.inverse_transform(labels[i])[0]
             x = transforms.ToTensor()(sample).float().unsqueeze(0).to(self._device)
             for i in range(len(self._class_names)):
@@ -526,11 +526,12 @@ class CITModel():
                 norm_y = cv2.resize(norm_y, dsize=(224, 224))
                 norm_y = norm_y.astype(np.uint8)
                 new_data.append(norm_y)
-                if labels != None:
+                if not (labels is None):
                     new_label = str(label) + 'T' + class_name
                     new_labels.append(new_label)
         
-        new_labels = label_binarizer_2.transform(new_labels)
+        if not (labels is None):
+            new_labels = label_binarizer_2.transform(new_labels)
     
         return np.array(new_data), np.array(new_labels)
     

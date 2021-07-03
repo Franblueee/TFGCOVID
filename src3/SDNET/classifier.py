@@ -1,15 +1,13 @@
 import tensorflow as tf
 import numpy as np
+import shfl
 
 from sklearn.metrics import classification_report
 
-class ClassifierModel():  
+class ClassifierModel(shfl.model.DeepLearningModel):  
 
-    def __init__(self, dict_labels, batch_size=1, epochs=1, finetune=True):
+    def __init__(self, dict_labels, batch_size, epochs, finetune):
         
-        self._device = 'cuda'
-        self._class_labels = ['P', 'N']
-
         #dict labels: letra -> bin
         self._dict_labels = dict_labels
 
@@ -136,7 +134,7 @@ class ClassifierModel():
         metrics = [acc, acc_4, no_concuerda, cr]
 
         return metrics
-
+    
     def load(self, path):
         self._model.save(path)
 

@@ -6,27 +6,37 @@ import numpy as np
 import torch
 import tensorflow as tf
 
+
+
+
+from SDNET.model import SDNETmodel
+from SDNET.CIT.model import CITModel
+
 from sklearn.preprocessing import LabelBinarizer
 
 from shfl.private import UnprotectedAccess
-from CIT.model import CITModel
+from SDNET.CIT.model import CITModel
 from utils import get_federated_data_csv, get_data_csv, get_transformed_data, get_percentage
-from ClassifierModel import ClassifierModel
+from SDNET.classifier import ClassifierModel
+from SDNET.model import SDNETmodel
 
 from sklearn.model_selection import StratifiedKFold
 
-args = {"data_path":"../data/Revisadas-Clasificadas-Recortadas", 
+#"../data/COVIDGR1.0reducido-cropped" 
+#Revisadas-Clasificadas-Recortadas
+
+args = {"data_path":"../data/COVIDGR1.0reducido-cropped", 
         "csv_dir": "../partitions/",
         "csv_path" : None,
         "weights_path": None,
         "results_file" : None,
         "train_CIT": 1, # 0: no train, 1: train from random weights, 2: train from loaded weights
-        "batch_size": 8,
+        "batch_size": 2,
         "aggregator": 'wfedavg',
-        "rounds_CIT":40,
-        "rounds_SDNET":50, 
-        "epochs_CIT": 10,
-        "epochs_SDNET": 10,
+        "rounds_CIT":1,
+        "rounds_SDNET":1, 
+        "epochs_CIT": 1,
+        "epochs_SDNET": 1,
         "num_nodes": None,
         "finetune": True,
         }
@@ -56,8 +66,8 @@ dict_labels = { 'PTP' : np.argmax(lb2.transform(['PTP'])[0]) , 'PTN' : np.argmax
 def cit_builder(lambda_class = 0.05):    
     return CITModel(['N', 'P'], classifier_name = "resnet18", lambda_value = lambda_class, batch_size=args["batch_size"], epochs=args["epochs_CIT"], device=device)
 
-def classifier_builder(G_dict):
-    return ClassifierModel(G_dict, dict_labels, batch_size=args["batch_size"], epochs=args["epochs_SDNET"], finetune = args["finetune"])
+def classifier_builder():
+    return ClassifierModel(dict_labels, batch_size=args["batch_size"], epochs=args["epochs_SDNET"], finetune = args["finetune"])
 
 def imprimir_configuracion():
     print("csv_path: " + args["csv_path"])
@@ -175,7 +185,7 @@ def run_federated_experiment():
     
     t_federated_data, t_test_data, t_test_label = get_transformed_data(federated_data, cit_federated_government, test_data, test_label, lb1, lb2)
     G_dict = cit_federated_government.global_model._G_dict
-    classifier_federated_government = shfl.federated_government.FederatedGovernment(lambda : classifier_builder(G_dict), t_federated_data, aggregator)
+    classifier_federated_government = shfl.federated_government.FederatedGovernment(classifier_builder, t_federated_data, aggregator)
     hist_SDNET = classifier_federated_government.run_rounds(args["rounds_SDNET"], t_test_data, t_test_label)
 
     metrics_sdnet = classifier_federated_government.global_model.evaluate(t_test_data, t_test_label)
@@ -192,7 +202,15 @@ def run_centralized_experiment():
 
     imprimir_configuracion()
 
+    sdnet_model = SDNETmodel(0.05, 1, 2, device)
+    #data, label, train_data, train_label, test_data, test_label, train_files, test_files = sdnet_model.get_data_csv(args["data_path"], args["csv_path"])
+
     data, label, train_data, train_label, test_data, test_label, train_files, test_files = get_data_csv(args["data_path"], args["csv_path"], lb1)
+
+    #print(train_data)
+    #print(train_label)
+
+    #sdnet_model.train_CIT(train_data, train_label)
 
     cit_model = cit_builder()
     cit_model.train(train_data, train_label)
@@ -305,19 +323,18 @@ def run_sdnet_crossval():
         f.write("CV Acc_4: {}".format(np.mean(cv_acc_4)) + "\n")
         f.close()
 
-"""
 csv_dir = "../partitions/"
 #csv_files = ["partition_iid_1nodes_1.csv", "partition_iid_1nodes_2.csv", "partition_iid_1nodes_3.csv", "partition_iid_1nodes_4.csv", "partition_iid_1nodes_5.csv"]
-csv_files = ["partition_noniid_hospital_2.csv"]
+#csv_files = ["partition_noniid_hospital_2.csv"]
+csv_files = ["partition_reducido.csv"]
 for csv_file in csv_files:
     args["csv_path"] = csv_dir + csv_file
     print("-------------------------------------------------------------------------------------")
     print("FILE: " + csv_file)
-    #run_centralized_experiment()
-    run_cit()
+    run_centralized_experiment()
+    #run_cit()
     #run_sdnet_crossval()
     print("-------------------------------------------------------------------------------------")
-"""
 
 #csv_files = [ "partition_iid_"+str(n)+"nodes_"+str(id)+".csv" for n in [6] for id in [1,2,3]]
 
@@ -326,9 +343,8 @@ for csv_file in csv_files:
 #csv_files = ["partition_noniid_puntosrale_1.csv", "partition_noniid_puntosrale_2.csv", "partition_noniid_puntosrale_3.csv"]
 #csv_files = ["partition_noniid_demograf_1.csv", "partition_noniid_demograf_2.csv", "partition_noniid_demograf_3.csv"]
 
-csv_files = ["partition_noniid_puntosrale_3.csv"]
-
-
+csv_files = ["partition_reducido.csv"]
+"""
 for csv_file in csv_files:
     print("hola")
     args["csv_path"] = args["csv_dir"] + csv_file
@@ -336,3 +352,4 @@ for csv_file in csv_files:
     print("FILE: " + csv_file)
     run_federated_experiment()
     print("-------------------------------------------------------------------------------------")
+"""

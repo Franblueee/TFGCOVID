@@ -86,13 +86,13 @@ def get_federated_data_csv(data_path, csv_path, label_binarizer, width=256, heig
                 train_label.append(row['class'])
     
     train_data = np.array(train_data)
-    train_label = np.array(train_label)
     train_label = label_binarizer.transform(train_label)
+    train_label = np.array(train_label)
+    
 
     test_data = np.array(test_data)
-    test_label = np.array(test_label)
     test_label = label_binarizer.transform(test_label)
-    
+    test_label = np.array(test_label)
     
     for n in range(num_nodes):
         federated_train_label[n] = label_binarizer.transform(federated_train_label[n])

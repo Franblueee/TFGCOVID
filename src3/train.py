@@ -1,11 +1,17 @@
-import json
 import shfl
+import torch
 import numpy as np
+import tensorflow as tf
+import torch
+import json
+
+from sklearn.preprocessing import LabelBinarizer
 
 from utils import get_federated_data_csv, get_transformed_data, get_percentage, imprimir_resultados
 from SDNET.classifier import ClassifierModel
 from SDNET.CIT.model import CITModel
-from sklearn.preprocessing import LabelBinarizer
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 config_path = "./config.json"
 
@@ -17,14 +23,21 @@ lb2 = LabelBinarizer()
 lb1.fit(args["labels"])
 lb2.fit(args["transform_labels"])
 
+dict_labels = { 'PTP' : np.argmax(lb2.transform(['PTP'])[0]) , 'PTN' : np.argmax(lb2.transform(['PTN'])[0]) , 
+                'NTP' : np.argmax(lb2.transform(['NTP'])[0]) , 'NTN' : np.argmax(lb2.transform(['NTN'])[0]), 
+                'P' : lb1.transform(['P'])[0][0], 'N' : lb1.transform(['N'])[0][0]
+              }
+
+"""
 dict_labels = {}
 for k in args["transform_labels"]:
     dict_labels[k] = np.argmax(lb2.transform([k])[0])
 for k in args["labels"]:
     dict_labels[k] = lb1.transform([k])[0][0]
+"""
 
 def cit_builder():    
-    return CITModel(args["labels"], classifier_name = args["CIT"]["classifier_name"], lambda_value = args["lambda"], batch_size=args["batch_size"], epochs=args["CIT"]["epochs"], device=args["device"])
+    return CITModel(args["labels"], classifier_name = args["CIT"]["classifier_name"], lambda_value = args["CIT"]["lambda"], batch_size=args["batch_size"], epochs=args["CIT"]["epochs"], device=device)
 
 def classifier_builder():
     return ClassifierModel(dict_labels, batch_size=args["batch_size"], epochs=args["SDNET"]["epochs"], finetune = args["SDNET"]["finetune"])
@@ -44,6 +57,7 @@ for file in args["partition_files"]:
     else:
         percentage = get_percentage(federated_data)
         aggregator = shfl.federated_aggregator.WeightedFedAvgAggregator(percentage=percentage)
+    
     cit_federated_government = shfl.federated_government.FederatedGovernment(cit_builder, federated_data, aggregator)
 
     if args["CIT"]["load"]==1:
@@ -57,13 +71,12 @@ for file in args["partition_files"]:
         metrics_cit = cit_federated_government.global_model.evaluate(test_data, test_label)
         
     t_federated_data, t_test_data, t_test_label = get_transformed_data(federated_data, cit_federated_government, test_data, test_label, lb1, lb2)
-    G_dict = cit_federated_government.global_model._G_dict
     classifier_federated_government = shfl.federated_government.FederatedGovernment(classifier_builder, t_federated_data, aggregator)
     
     if args["SDNET"]["load"]==1:
         classifier_federated_government.global_model.load(args["load_weights_path"] + args["SDNET"]["load_weights_name"])
     
-    hist_SDNET = classifier_federated_government.run_rounds(args["rounds_SDNET"], t_test_data, t_test_label)
+    hist_SDNET = classifier_federated_government.run_rounds(args["SDNET"]["rounds"], t_test_data, t_test_label)
 
     if args["SDNET"]["save"]==1:
         classifier_federated_government.global_model.save(args["save_weights_path"] + args["SDNET"]["save_weights_name"])

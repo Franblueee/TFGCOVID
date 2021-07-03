@@ -1,12 +1,16 @@
 import os
 import sys
 import numpy as np
+import tensorflow as tf
 
 import cv2
 import PIL
 
 from tqdm import tqdm
 from keras import backend as keras
+from keras.models import load_model
+
+
 
 def dice_coef(y_true, y_pred):
     y_true_f = keras.flatten(y_true)
@@ -19,7 +23,7 @@ def dice_coef_loss(y_true, y_pred):
 
 class LungsCropper():
     def __init__(self, model_path):
-        self._segmentation_model = keras.models.load_model(model_path, custom_objects={'dice_coef_loss': dice_coef_loss, 'dice_coef': dice_coef})
+        self._segmentation_model = load_model(model_path, custom_objects={'dice_coef_loss': dice_coef_loss, 'dice_coef': dice_coef})
         self._threshold = 0.02
 
     def cropImage(self, image):
@@ -39,7 +43,7 @@ class LungsCropper():
         image = np.reshape(image, image.shape + (1,))
         image = np.reshape(image, (1,) + image.shape)
 
-        pred_img = self._model.predict(image)
+        pred_img = self._segmentation_model.predict(image)
         pred_img = pred_img[0,:,:,0]
 
         heigth1, heigth2, width1, width2 = None, None, None, None
@@ -110,7 +114,8 @@ class LungsCropper():
 
     def crop_data(self, data):
         new_data = []
-        for img in data:
+        print("Cropping images")
+        for img in tqdm(data):
             cropped_img = self.cropImage(img)
             new_data.append(cropped_img)
         
