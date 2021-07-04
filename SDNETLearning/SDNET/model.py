@@ -9,12 +9,12 @@ from SDNET.classifier import ClassifierModel
 from SDNET.CIT.model import CITModel
 from sklearn.preprocessing import LabelBinarizer
 
-class SDNETmodel():
+class SDNETModel():
 
-    def __init__(self, lambda_value, epochs, batch_size, device, segmentation_path):
-
-        self._epochs = epochs
-        self.batch_size = batch_size
+    def __init__(self, lambda_value, batch_size, device, segmentation_path):
+        
+        self._lambda = lambda_value
+        self._batch_size = batch_size
         self._class_labels = ['N', 'P']
         self._transform_labels = ['NTN', 'NTP', 'PTP', 'PTN']
         self._device = device
@@ -31,7 +31,7 @@ class SDNETmodel():
         self._lb1.fit(self._class_labels)
         self._lb2.fit(self._transform_labels)
 
-        dict_labels = { 'PTP' : np.argmax(self._lb2.transform(['PTP'])[0]) , 'PTN' : np.argmax(self._lb2.transform(['PTN'])[0]) , 
+        self._dict_labels = { 'PTP' : np.argmax(self._lb2.transform(['PTP'])[0]) , 'PTN' : np.argmax(self._lb2.transform(['PTN'])[0]) , 
                 'NTP' : np.argmax(self._lb2.transform(['NTP'])[0]) , 'NTN' : np.argmax(self._lb2.transform(['NTN'])[0]), 
                 'P' : self._lb1.transform(['P'])[0][0], 'N' : self._lb1.transform(['N'])[0][0]
               } 
@@ -43,13 +43,15 @@ class SDNETmodel():
         for k in self._class_labels:
             dict_labels[k] = self._lb1.transform([k])[0][0]
         """
-        if segmentation_path != None:
-            self._cropper = LungsCropper(segmentation_path)
-        else:
-            self._cropper = None
-        
-        self._cit_model = CITModel(['N', 'P'], "resnet18", lambda_value, batch_size, epochs, self._device)
-        self._classifier_model = ClassifierModel(dict_labels, batch_size, epochs, finetune = True)
+
+    def init_cropper(self, segmentation_path):
+        self._cropper = LungsCropper(segmentation_path)
+
+    def init_CIT(self, epochs):
+        self._cit_model = CITModel(['N', 'P'], "resnet18", self._lambda, self._batch_size, epochs, self._device)
+
+    def init_Classifier(self, epochs):
+        self._classifier_model = ClassifierModel(self._dict_labels, self._batch_size, epochs, finetune = True)
 
     def get_data_csv(self, data_path, csv_path):
         
@@ -135,7 +137,7 @@ class SDNETmodel():
         else:
             t_data, _ = data, None
 
-        self._classifier_model.predict(data)
+        return self._classifier_model.predict(data)
     
     def transform_data(self, data, labels):
         return self._cit_model.transform_data(data, labels, self._lb1, self._lb2)
@@ -146,4 +148,4 @@ class SDNETmodel():
         else:
             t_data, t_labels = data, labels
 
-        self._classifier_model.evaluate(t_data, t_labels)
+        return self._classifier_model.evaluate(t_data, t_labels)

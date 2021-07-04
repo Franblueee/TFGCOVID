@@ -135,8 +135,8 @@ class ClassifierModel(shfl.model.DeepLearningModel):
 
         return metrics
     
-    def load(self, path):
-        self._model.save(path)
-
     def save(self, path):
-        self._model = tf.keras.models.load_model(path)
+        self._model.save(path + "SDNET_C.h5")
+
+    def load(self, path):
+        self._model = tf.keras.models.load_model(path + "SDNET_C.h5")

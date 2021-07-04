@@ -5,15 +5,11 @@ import cv2
 import csv
 import os
 
-from SDNET.model import SDNETmodel
+from SDNET.model import SDNETModel
 from shfl.private.federated_operation import FederatedData
 from shfl.private.data import LabeledData
 
-class FederatedSDNETmodel(SDNETmodel):
-
-    def __init__(self, lambda_value, epochs, batch_size, device, segmentation_path, aggregator):
-        SDNETmodel.__init__(lambda_value, epochs, batch_size, device, segmentation_path)
-        self._aggregator = aggregator  
+class FederatedSDNETModel(SDNETModel):          
 
     def transform_federated_data(self, federated_data):
 
@@ -22,28 +18,49 @@ class FederatedSDNETmodel(SDNETmodel):
         for i in range(federated_data.num_nodes()):
             data = federated_data[i].query()._data
             labels = federated_data[i].query()._label
-            t_data, t_labels = self._transform_data(data, labels, self._lb1, self._lb2)
+            t_data, t_labels = self.transform_data(data, labels)
             t_federated_data[i].query()._data = t_data
             t_federated_data[i].query()._label = t_labels
 
         return t_federated_data
+    
+    def set_aggregator(self, aggregator):
+        self._aggregator = aggregator
 
-    def run_rounds(self, rounds, federated_data, test_data, test_label):
-        
+    def run_rounds_CIT(self, rounds, federated_data, test_data, test_label):
         def cit_builder():
             return self._cit_model
         
+        cit_federated_government = shfl.federated_government.FederatedGovernment(cit_builder, federated_data, self._aggregator)
+        hist_cit = cit_federated_government.run_rounds(rounds, test_data, test_label)
+        self._cit_model = copy.deepcopy(cit_federated_government.global_model)
+
+        return hist_cit
+
+    def run_rounds_Classifier(self, rounds, federated_data, test_data, test_label, transform = True):
         def classifier_builder():
             return self._classifier_model
 
-        cit_federated_government = shfl.federated_government.FederatedGovernment(cit_builder, federated_data, self._aggregator)
-        cit_federated_government.run_rounds(rounds, test_data, test_label)
-        t_test_data, t_test_label = self._cit_model.transform_data(test_data, test_label, self._lb1, self._lb2)
+        if transform:
+            t_test_data, t_test_label = self._cit_model.transform_data(test_data, test_label, self._lb1, self._lb2)
+            t_federated_data = self.transform_federated_data(federated_data)
+        else:
+            t_test_data, t_test_label = test_data, test_label
+            t_federated_data = federated_data
         
-        t_federated_data = self.transform_federated_data(federated_data)
         classifier_federated_government = shfl.federated_government.FederatedGovernment(classifier_builder, t_federated_data, self._aggregator)
-        classifier_federated_government.run_rounds(rounds, t_test_data, t_test_label)
-    
+        hist_classifier = classifier_federated_government.run_rounds(rounds, t_test_data, t_test_label)
+        self._classifier_model = copy.deepcopy(classifier_federated_government.global_model)
+
+        return hist_classifier
+
+    def run_rounds(self, rounds, federated_data, test_data, test_label):
+        
+        hist_cit = self.run_rounds_CIT(rounds, federated_data, test_data, test_label)
+        hist_classifier = self.run_rounds_Classifier(rounds, federated_data, test_data, test_label)        
+
+        return hist_cit, hist_classifier
+
     def get_federated_data_csv(self, data_path, csv_path):
         width=256
         height=256

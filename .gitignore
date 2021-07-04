@@ -9,7 +9,9 @@
 *.model
 *-checkpoint.ipynb
 *.zip
-*.json
 *.pdf
 *.csv
 *.pth
+*.h5
+
+settings.json
