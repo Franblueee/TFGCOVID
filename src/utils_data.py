@@ -339,3 +339,15 @@ def federate_data_demograf(demograf_dict):
         test_data.extend(test_image_paths)
 
     return federated_data, test_data
+
+def get_neg_pos(image_paths):
+    neg = 0
+    pos = 0
+    for img in image_paths:
+        label = img.split(os.sep)[-2]
+        if label == 'N':
+            neg = neg + 1
+        else:
+            pos = pos + 1
+    
+    return neg, pos

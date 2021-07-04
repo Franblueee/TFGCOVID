@@ -10,7 +10,7 @@ config.gpu_options.allow_growth=True
 sess = tf.Session(config=config)
 
 from utils_train import  get_percentage, imprimir_resultados
-from SDNET.federated_model import FederatedSDNETModel
+from SDNETLearning.federated_model import FederatedSDNETModel
 from shfl.private import UnprotectedAccess
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -50,6 +50,9 @@ for file in args["partition_files"]:
 
     if args["evaluate"]==1:
         metrics_cit = sdnet.evaluate_CIT(test_data, test_label)
+
+    if args["Classifier"]["load"]==1:
+        sdnet._classifier_model.load(args["load_weights_path"] + args["Classifier"]["load_weights_name"])
 
     hist_classifier = sdnet.run_rounds_Classifier(args["Classifier"]["rounds"], federated_data, test_data, test_label)
 
